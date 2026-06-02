@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  name            String
+  email           String     @unique
+  password        String
+  role            Role
+  phone           String?
+  donations       Donation[] @relation("DonorDonations")
+  pickupRequests  Request[]  @relation("ReceiverRequests")
+  createdAt       DateTime   @default(now())
+}
+
+model Donation {
+  id                 Int       @id @default(autoincrement())
+  donorId            Int
+  donor              User      @relation("DonorDonations", fields: [donorId], references: [id])
+  foodName           String
+  category           String    @default("Other")
+  quantity           String
+  description        String?
+  image              String?
+  latitude           Float
+  longitude          Float
+  address            String
+  pickupInstructions String?
+  expiryTime         DateTime
+  status             DonationStatus @default(ACTIVE)
+  requests           Request[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model Request {
+  id          Int           @id @default(autoincrement())
+  donationId  Int
+  receiverId  Int
+  donation    Donation      @relation(fields: [donationId], references: [id])
+  receiver    User          @relation("ReceiverRequests", fields: [receiverId], references: [id])
+  status      RequestStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+}
+
+enum Role {
+  DONOR
+  RECEIVER
+}
+
+enum DonationStatus {
+  ACTIVE
+  COMPLETED
+  DELETED
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+}
+
