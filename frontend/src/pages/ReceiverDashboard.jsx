@@ -1,0 +1,130 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import api from "../api/client";
+import DonationCard from "../components/DonationCard";
+import LocationPicker from "../components/LocationPicker";
+import StatusBadge from "../components/StatusBadge";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { useDonationFeed } from "../hooks/useDonationFeed";
+import { useNotifications } from "../context/NotificationContext";
+import { useSocket } from "../context/SocketContext";
+import { useLocationStore } from "../store/locationStore";
+
+export default function ReceiverDashboard() {
+  const { location: gps } = useGeolocation();
+  const { lat, lng, setCurrentLocation } = useLocationStore();
+  const { notify } = useNotifications();
+  const { socket } = useSocket();
+  const [requests, setRequests] = useState([]);
+  const [stats, setStats] = useState(null);
+
+  const searchLat = lat ?? gps?.lat;
+  const searchLng = lng ?? gps?.lng;
+
+  useEffect(() => {
+    if (gps && lat == null) setCurrentLocation(gps.lat, gps.lng);
+  }, [gps, lat, setCurrentLocation]);
+
+  const { donations, loading } = useDonationFeed({
+    lat: searchLat,
+    lng: searchLng,
+    maxDistance: 25
+  });
+
+  const loadRequests = async () => {
+    const [dash, reqs] = await Promise.all([
+      api.get("/dashboard", { params: { lat: searchLat, lng: searchLng } }),
+      api.get("/requests/mine")
+    ]);
+    setStats(dash.data);
+    setRequests(reqs.data);
+  };
+
+  useEffect(() => { loadRequests(); }, [searchLat, searchLng]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refresh = () => loadRequests();
+    socket.on("donation:created", refresh);
+    socket.on("donation:updated", refresh);
+    socket.on("donation:servings", refresh);
+    return () => {
+      socket.off("donation:created", refresh);
+      socket.off("donation:updated", refresh);
+      socket.off("donation:servings", refresh);
+    };
+  }, [socket]);
+
+  const cancelRequest = async (id) => {
+    await api.patch(`/requests/${id}/cancel`);
+    notify("Reservation cancelled — servings restored");
+    loadRequests();
+  };
+
+  const requestPickup = async (donationId, amount = 1) => {
+    try {
+      await api.post("/requests", { donationId, servingsReserved: amount });
+      notify(`Reserved ${amount} servings`);
+      loadRequests();
+    } catch (err) {
+      notify(err?.response?.data?.message || "Failed");
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Receiver Hub</h1>
+          <p className="text-sm text-slate-600">Find food near your chosen location</p>
+        </div>
+        <Link to="/map" className="btn-primary">Full map view</Link>
+      </div>
+
+      <LocationPicker />
+
+      {stats && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="glass text-center"><p className="text-2xl font-bold text-primary">{stats.requestedPickups}</p><p className="text-sm">Active</p></div>
+          <div className="glass text-center"><p className="text-2xl font-bold text-primary">{stats.pickupHistory}</p><p className="text-sm">Completed</p></div>
+          <div className="glass text-center"><p className="text-2xl font-bold text-primary">{donations.length}</p><p className="text-sm">Nearby now</p></div>
+        </div>
+      )}
+
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">Nearby donations (live)</h2>
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="skeleton h-72" />)}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {donations.map((d) => (
+              <div key={d.id}>
+                <DonationCard donation={d} canRequest={false} />
+                <button className="btn-primary mt-2 w-full text-sm" onClick={() => requestPickup(d.id, 1)}>Reserve 1 serving</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="glass">
+        <h2 className="text-lg font-semibold">My reservations</h2>
+        <div className="mt-3 space-y-2">
+          {requests.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
+              <div>
+                <p className="font-medium">{r.donation?.foodName} — {r.servingsReserved} servings</p>
+                <StatusBadge status={r.status} />
+              </div>
+              {["PENDING", "ACCEPTED", "RESERVED"].includes(r.status) && (
+                <button type="button" className="btn-secondary text-sm" onClick={() => cancelRequest(r.id)}>Cancel</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

@@ -23,50 +23,31 @@ export default function AuthPage() {
 
   return (
     <div className="mx-auto max-w-md p-4">
-      <form className="card space-y-3" onSubmit={submit}>
-        <h2 className="text-2xl font-semibold">{isRegister ? "Create Account" : "Welcome Back"}</h2>
+      <form className="glass fade-in space-y-3 p-6" onSubmit={submit}>
+        <h2 className="text-2xl font-bold text-primary">{isRegister ? "Join FoodBridge" : "Welcome Back"}</h2>
+        <p className="text-sm text-slate-600">Connect surplus food with people who need it.</p>
+
         {isRegister && (
-          <input
-            className="w-full rounded-xl border border-green-200 bg-white p-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
-            placeholder="Name"
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
+          <input className="input-field" placeholder="Full name" required onChange={(e) => setForm({ ...form, name: e.target.value })} />
         )}
-        <input
-          className="w-full rounded-xl border border-green-200 bg-white p-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
-          type="email"
-          placeholder="Email"
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-        <input
-          className="w-full rounded-xl border border-green-200 bg-white p-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
-          type="password"
-          placeholder="Password"
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
+        <input className="input-field" type="email" placeholder="Email" required onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input className="input-field" type="password" placeholder="Password" required onChange={(e) => setForm({ ...form, password: e.target.value })} />
         {isRegister && (
           <>
-            <input
-              className="w-full rounded-xl border border-green-200 bg-white p-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
-              placeholder="Phone (optional)"
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-            <select
-              className="w-full rounded-xl border border-green-200 bg-white p-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-            >
-              <option value="DONOR">Donor</option>
-              <option value="RECEIVER">Receiver</option>
+            <input className="input-field" placeholder="Phone (optional)" onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <select className="input-field" onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              <option value="DONOR">I want to donate food</option>
+              <option value="RECEIVER">I need food / NGO / Shelter</option>
             </select>
           </>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button className="btn-primary w-full">{isRegister ? "Register" : "Login"}</button>
+        <button className="btn-primary w-full">{isRegister ? "Create Account" : "Login"}</button>
         <button type="button" className="w-full text-sm text-primary" onClick={() => setIsRegister((v) => !v)}>
-          {isRegister ? "Already have an account?" : "Create a new account"}
+          {isRegister ? "Already have an account? Login" : "New here? Create account"}
         </button>
+        <p className="text-center text-xs text-slate-500">Admin: admin@foodbridge.com / password123</p>
       </form>
     </div>
   );
 }
-

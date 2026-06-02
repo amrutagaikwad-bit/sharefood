@@ -6,6 +6,18 @@ const prisma = new PrismaClient();
 async function main() {
   const hashed = await bcrypt.hash("password123", 10);
 
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@foodbridge.com" },
+    update: {},
+    create: {
+      name: "FoodBridge Admin",
+      email: "admin@foodbridge.com",
+      password: hashed,
+      role: "ADMIN",
+      phone: "+910000000099"
+    }
+  });
+
   const donor = await prisma.user.upsert({
     where: { email: "donor@foodbridge.com" },
     update: {},
@@ -30,31 +42,44 @@ async function main() {
     }
   });
 
-  await prisma.donation.create({
-    data: {
-      donorId: donor.id,
-      foodName: "Vegetable Pulao",
-      category: "Cooked Meal",
-      quantity: "10 packs",
-      description: "Freshly prepared lunch packs",
-      image: "https://images.unsplash.com/photo-1512058564366-18510be2db19",
-      latitude: 12.9716,
-      longitude: 77.5946,
-      address: "MG Road, Bengaluru",
-      pickupInstructions: "Collect from gate no.2 between 6 PM - 8 PM",
-      expiryTime: new Date(Date.now() + 6 * 60 * 60 * 1000)
-    }
-  });
+  const existing = await prisma.donation.findFirst({ where: { donorId: donor.id } });
+  if (!existing) {
+    await prisma.donation.create({
+      data: {
+        donorId: donor.id,
+        foodName: "Vegetable Pulao",
+        category: "Cooked Meal",
+        quantity: "10 packs",
+        servesCount: 100,
+        servingsRemaining: 100,
+        description: "Freshly prepared lunch packs",
+        image: "https://images.unsplash.com/photo-1512058564366-18510be2db19",
+        latitude: 12.9716,
+        longitude: 77.5946,
+        address: "MG Road, Bengaluru, Karnataka 560001",
+        city: "Bengaluru",
+        state: "Karnataka",
+        postalCode: "560001",
+        specialInstructions: "Collect from gate no.2 between 6 PM - 8 PM",
+        contactPhone: "+910000000000",
+        preparationAt: new Date(),
+        expiryTime: new Date(Date.now() + 8 * 60 * 60 * 1000),
+        pickupStart: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        pickupEnd: new Date(Date.now() + 6 * 60 * 60 * 1000),
+        status: "ACTIVE"
+      }
+    });
+  }
+
+  console.log("Seed complete. Admin:", admin.email);
 }
 
 main()
   .then(async () => {
     await prisma.$disconnect();
-    console.log("Seed complete");
   })
   .catch(async (e) => {
     console.error(e);
     await prisma.$disconnect();
     process.exit(1);
   });
-

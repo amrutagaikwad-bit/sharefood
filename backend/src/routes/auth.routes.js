@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 import { authRequired } from "../middleware/auth.js";
+import { logActivity } from "../services/activity.service.js";
+import { createNotification, notifyAdmins } from "../services/notification.service.js";
 
 const router = express.Router();
 
@@ -23,12 +25,19 @@ router.post("/register", async (req, res) => {
     const user = await prisma.user.create({
       data: { name, email, password: hashed, role, phone }
     });
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "7d"
+
+    await logActivity({ userId: user.id, action: "USER_REGISTERED", entityType: "User", entityId: user.id });
+    await notifyAdmins({
+      type: "NEW_USER",
+      title: "New user registered",
+      message: `${user.name} joined as ${user.role}`,
+      meta: { userId: user.id }
     });
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
     return res.status(201).json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone }
+      user: sanitizeUser(user)
     });
   } catch {
     return res.status(500).json({ message: "Failed to register" });
@@ -40,33 +49,38 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    if (user.isBlocked) return res.status(403).json({ message: "Account suspended" });
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "7d"
-    });
-    return res.json({
-      token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone }
-    });
+    await logActivity({ userId: user.id, action: "USER_LOGIN", entityType: "User", entityId: user.id });
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    return res.json({ token, user: sanitizeUser(user) });
   } catch {
     return res.status(500).json({ message: "Failed to login" });
   }
 });
 
-router.get("/me", authRequired, async (req, res) => {
-  return res.json({
-    user: {
-      id: req.user.id,
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role,
-      phone: req.user.phone
-    }
-  });
+router.post("/logout", authRequired, async (req, res) => {
+  await logActivity({ userId: req.user.id, action: "USER_LOGOUT", entityType: "User", entityId: req.user.id });
+  res.json({ message: "Logged out" });
 });
 
-export default router;
+router.get("/me", authRequired, async (req, res) => {
+  res.json({ user: sanitizeUser(req.user) });
+});
 
+function sanitizeUser(user) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    phone: user.phone,
+    isBlocked: user.isBlocked
+  };
+}
+
+export default router;

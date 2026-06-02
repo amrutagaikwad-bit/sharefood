@@ -10,11 +10,25 @@ export async function authRequired(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) return res.status(401).json({ message: "Unauthorized" });
+    if (user.isBlocked) return res.status(403).json({ message: "Account suspended" });
     req.user = user;
     next();
   } catch {
     return res.status(401).json({ message: "Invalid token" });
   }
+}
+
+export function authOptional(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) return next();
+
+  jwt.verify(token, process.env.JWT_SECRET, async (err, payload) => {
+    if (err || !payload) return next();
+    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (user && !user.isBlocked) req.user = user;
+    next();
+  });
 }
 
 export function roleRequired(...roles) {
@@ -25,4 +39,3 @@ export function roleRequired(...roles) {
     next();
   };
 }
-

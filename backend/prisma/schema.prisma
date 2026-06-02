@@ -8,62 +8,170 @@ datasource db {
 }
 
 model User {
-  id              Int        @id @default(autoincrement())
-  name            String
-  email           String     @unique
-  password        String
-  role            Role
-  phone           String?
-  donations       Donation[] @relation("DonorDonations")
-  pickupRequests  Request[]  @relation("ReceiverRequests")
-  createdAt       DateTime   @default(now())
+  id             Int              @id @default(autoincrement())
+  name           String
+  email          String           @unique
+  password       String
+  role           Role
+  phone          String?
+  isBlocked      Boolean          @default(false)
+  donations      Donation[]       @relation("DonorDonations")
+  pickupRequests Request[]        @relation("ReceiverRequests")
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  adminLogs      AdminLog[]       @relation("AdminActions")
+  savedDonations SavedDonation[]
+  reports        Report[]         @relation("Reporter")
+  reportedOn     Report[]         @relation("ReportedUser")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now()) @updatedAt
 }
 
 model Donation {
-  id                 Int       @id @default(autoincrement())
-  donorId            Int
-  donor              User      @relation("DonorDonations", fields: [donorId], references: [id])
-  foodName           String
-  category           String    @default("Other")
-  quantity           String
-  description        String?
-  image              String?
-  latitude           Float
-  longitude          Float
-  address            String
-  pickupInstructions String?
-  expiryTime         DateTime
-  status             DonationStatus @default(ACTIVE)
-  requests           Request[]
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                  Int              @id @default(autoincrement())
+  donorId             Int
+  donor               User             @relation("DonorDonations", fields: [donorId], references: [id])
+  foodName            String
+  category            String           @default("Other")
+  quantity            String
+  servesCount         Int              @default(1)
+  servingsRemaining   Int              @default(1)
+  description         String?
+  image               String?
+  latitude            Float
+  longitude           Float
+  address             String
+  city                String?
+  state               String?
+  postalCode          String?
+  specialInstructions String?
+  contactPhone        String?
+  preparationAt       DateTime?
+  expiryTime          DateTime
+  pickupStart         DateTime?
+  pickupEnd           DateTime?
+  status              DonationStatus   @default(CREATED)
+  isPaused            Boolean          @default(false)
+  isFlagged           Boolean          @default(false)
+  isHidden            Boolean          @default(false)
+  requests            Request[]
+  savedBy             SavedDonation[]
+  reports             Report[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 }
 
 model Request {
-  id          Int           @id @default(autoincrement())
-  donationId  Int
-  receiverId  Int
-  donation    Donation      @relation(fields: [donationId], references: [id])
-  receiver    User          @relation("ReceiverRequests", fields: [receiverId], references: [id])
-  status      RequestStatus @default(PENDING)
-  createdAt   DateTime      @default(now())
+  id               Int           @id @default(autoincrement())
+  donationId       Int
+  receiverId       Int
+  donation         Donation      @relation(fields: [donationId], references: [id])
+  receiver         User          @relation("ReceiverRequests", fields: [receiverId], references: [id])
+  status           RequestStatus @default(PENDING)
+  servingsReserved Int           @default(1)
+  pickupSlot       DateTime?
+  message          String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  meta      String?
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id            Int      @id @default(autoincrement())
+  userId        Int?
+  user          User?    @relation(fields: [userId], references: [id])
+  action        String
+  entityType    String?
+  entityId      Int?
+  previousValue String?
+  newValue      String?
+  metadata      String?
+  createdAt     DateTime @default(now())
+}
+
+model AdminLog {
+  id         Int      @id @default(autoincrement())
+  adminId    Int
+  admin      User     @relation("AdminActions", fields: [adminId], references: [id])
+  action     String
+  targetType String?
+  targetId   Int?
+  details    String?
+  createdAt  DateTime @default(now())
+}
+
+model SystemLog {
+  id        Int      @id @default(autoincrement())
+  level     String
+  message   String
+  stack     String?
+  metadata  String?
+  createdAt DateTime @default(now())
+}
+
+model SavedDonation {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  donationId Int
+  user       User     @relation(fields: [userId], references: [id])
+  donation   Donation @relation(fields: [donationId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, donationId])
+}
+
+model Report {
+  id             Int          @id @default(autoincrement())
+  reporterId     Int
+  reporter       User         @relation("Reporter", fields: [reporterId], references: [id])
+  donationId     Int?
+  donation       Donation?    @relation(fields: [donationId], references: [id])
+  reportedUserId Int?
+  reportedUser   User?        @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reason         String
+  status         ReportStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
 }
 
 enum Role {
   DONOR
   RECEIVER
+  ADMIN
 }
 
 enum DonationStatus {
+  CREATED
   ACTIVE
+  REQUESTED
+  RESERVED
+  PICKED_UP
   COMPLETED
+  EXPIRED
   DELETED
+  INVALID
 }
 
 enum RequestStatus {
   PENDING
   ACCEPTED
+  REJECTED
+  RESERVED
   COMPLETED
   CANCELLED
 }
 
+enum ReportStatus {
+  PENDING
+  RESOLVED
+}

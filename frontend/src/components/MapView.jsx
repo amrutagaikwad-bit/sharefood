@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
+import "leaflet.markercluster";
 
 const donorIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -8,41 +10,69 @@ const donorIcon = new L.Icon({
   iconAnchor: [12, 41]
 });
 
+const completedIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
 function Recenter({ center }) {
   const map = useMap();
-  if (center) map.setView(center, map.getZoom(), { animate: true });
+  useEffect(() => {
+    if (center) map.setView(center, map.getZoom(), { animate: true });
+  }, [center, map]);
   return null;
 }
 
-export default function MapView({ userLocation, donations }) {
+function ClusterLayer({ donations, onSelect }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const cluster = L.markerClusterGroup();
+    donations.forEach((d) => {
+      const icon = d.status === "COMPLETED" ? completedIcon : donorIcon;
+      const marker = L.marker([d.latitude, d.longitude], { icon });
+      marker.bindPopup(
+        `<strong>${d.foodName}</strong><br/>${d.quantity}<br/>${d.address}${
+          d.distanceKm !== undefined ? `<br/>${d.distanceKm.toFixed(2)} km` : ""
+        }`
+      );
+      marker.on("click", () => onSelect?.(d));
+      cluster.addLayer(marker);
+    });
+    map.addLayer(cluster);
+    return () => map.removeLayer(cluster);
+  }, [donations, map, onSelect]);
+
+  return null;
+}
+
+export default function MapView({ userLocation, donations, onSelect, showRanges = true }) {
   const center = userLocation || [20.5937, 78.9629];
+
   return (
-    <MapContainer center={center} zoom={12} className="h-[420px] w-full rounded-2xl">
+    <MapContainer center={center} zoom={13} className="h-[480px] w-full rounded-2xl shadow-lg">
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <Recenter center={center} />
-      {userLocation && (
+      {userLocation && showRanges && (
         <>
-          <Circle center={userLocation} radius={1000} pathOptions={{ color: "#2E7D32", fillOpacity: 0.08 }} />
+          <Circle center={userLocation} radius={1000} pathOptions={{ color: "#2E7D32", fillOpacity: 0.1 }} />
+          <Circle center={userLocation} radius={3000} pathOptions={{ color: "#66BB6A", fillOpacity: 0.07 }} />
           <Circle center={userLocation} radius={5000} pathOptions={{ color: "#66BB6A", fillOpacity: 0.05 }} />
-          <Circle center={userLocation} radius={10000} pathOptions={{ color: "#FFA726", fillOpacity: 0.03 }} />
+          <Circle center={userLocation} radius={10000} pathOptions={{ color: "#FFA726", fillOpacity: 0.04 }} />
+          <Circle center={userLocation} radius={25000} pathOptions={{ color: "#FFA726", fillOpacity: 0.02 }} />
         </>
       )}
-      {donations.map((d) => (
-        <Marker key={d.id} position={[d.latitude, d.longitude]} icon={donorIcon}>
-          <Popup>
-            <div className="space-y-1">
-              <strong>{d.foodName}</strong>
-              <p>{d.quantity}</p>
-              <p>{d.address}</p>
-              {d.distanceKm !== undefined && <p>{d.distanceKm.toFixed(2)} km away</p>}
-            </div>
-          </Popup>
+      {userLocation && (
+        <Marker position={userLocation}>
+          <Popup>You are here</Popup>
         </Marker>
-      ))}
+      )}
+      <ClusterLayer donations={donations} onSelect={onSelect} />
     </MapContainer>
   );
 }
-
