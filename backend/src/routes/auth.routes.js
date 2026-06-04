@@ -7,6 +7,14 @@ import { authRequired } from "../middleware/auth.js";
 import { logActivity } from "../services/activity.service.js";
 import { createNotification, notifyAdmins } from "../services/notification.service.js";
 import { sendOtp, verifyOtp } from "../services/otp.service.js";
+import { recordLogin, recordFailedLogin } from "../services/loginHistory.service.js";
+
+function clientMeta(req) {
+  return {
+    ip: req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress,
+    userAgent: req.headers["user-agent"]
+  };
+}
 
 const router = express.Router();
 
@@ -58,13 +66,24 @@ router.post("/login", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
     }
+    const meta = clientMeta(req);
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    if (!user) {
+      await recordFailedLogin(email, "Unknown email");
+      await recordLogin({ email, success: false, ...meta });
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
     if (user.isBlocked) return res.status(403).json({ message: "Account suspended" });
+    if (user.isBanned) return res.status(403).json({ message: "Account banned" });
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+    if (!valid) {
+      await recordFailedLogin(email, "Invalid password", { userId: user.id });
+      await recordLogin({ userId: user.id, email, success: false, ...meta });
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
+    await recordLogin({ userId: user.id, email, success: true, ...meta });
     await logActivity({ userId: user.id, action: "USER_LOGIN", entityType: "User", entityId: user.id });
 
     const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
@@ -107,6 +126,12 @@ router.post("/otp/verify", async (req, res) => {
         meta: { userId: user.id }
       });
     } else {
+      await recordLogin({
+        userId: user.id,
+        email: user.email,
+        success: true,
+        ...clientMeta(req)
+      });
       await logActivity({ userId: user.id, action: "USER_LOGIN_OTP", entityType: "User", entityId: user.id });
     }
 

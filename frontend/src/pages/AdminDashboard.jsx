@@ -33,11 +33,17 @@ export default function AdminDashboard() {
   const [liveFeed, setLiveFeed] = useState([]);
   const [tab, setTab] = useState("overview");
   const [userSearch, setUserSearch] = useState("");
+<<<<<<< HEAD
   const [donorSearch, setDonorSearch] = useState("");
   const [bookingFilter, setBookingFilter] = useState("");
   const [bookingSearch, setBookingSearch] = useState("");
   const [trends, setTrends] = useState({ donations: [], bookings: [] });
   const [settings, setSettings] = useState([]);
+=======
+  const [requests, setRequests] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [trends, setTrends] = useState({ dailyDonations: [], dailyBookings: [] });
+>>>>>>> ffc4eea (kkr)
 
   const load = async () => {
     const [dash, u, d, h, l, t] = await Promise.all([
@@ -64,12 +70,19 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (tab === "users") api.get("/admin/users", { params: { q: userSearch } }).then((r) => setUsers(r.data));
+<<<<<<< HEAD
     if (tab === "donors") api.get("/admin/donors", { params: { q: donorSearch } }).then((r) => setDonors(r.data));
     if (tab === "bookings") {
       api.get("/admin/bookings", { params: { status: bookingFilter, q: bookingSearch } }).then((r) => setBookings(r.data));
     }
     if (tab === "settings") api.get("/admin/settings").then((r) => setSettings(r.data)).catch(() => setSettings([]));
   }, [userSearch, donorSearch, bookingFilter, bookingSearch, tab]);
+=======
+    if (tab === "requests") api.get("/admin/requests").then((r) => setRequests(r.data));
+    if (tab === "notifications") api.get("/admin/notifications").then((r) => setAdminNotifications(r.data));
+    if (tab === "overview") api.get("/admin/analytics/trends").then((r) => setTrends(r.data));
+  }, [userSearch, tab]);
+>>>>>>> ffc4eea (kkr)
 
   useEffect(() => {
     if (!socket) return;
@@ -77,6 +90,11 @@ export default function AdminDashboard() {
     const onActivity = (log) => setLiveFeed((prev) => [log, ...prev].slice(0, 40));
     socket.on("donation:created", refresh);
     socket.on("donation:updated", refresh);
+<<<<<<< HEAD
+=======
+    socket.on("donation:servings", refresh);
+    socket.on("request:created", refresh);
+>>>>>>> ffc4eea (kkr)
     socket.on("booking:created", refresh);
     socket.on("booking:updated", refresh);
     socket.on("activity:new", onActivity);
@@ -84,6 +102,11 @@ export default function AdminDashboard() {
     return () => {
       socket.off("donation:created", refresh);
       socket.off("donation:updated", refresh);
+<<<<<<< HEAD
+=======
+      socket.off("donation:servings", refresh);
+      socket.off("request:created", refresh);
+>>>>>>> ffc4eea (kkr)
       socket.off("booking:created", refresh);
       socket.off("booking:updated", refresh);
       socket.off("activity:new", onActivity);
@@ -122,6 +145,7 @@ export default function AdminDashboard() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
+<<<<<<< HEAD
               ["Total users", ov.totalUsers ?? data.users?.totalUsers],
               ["Total donors", ov.totalDonors ?? data.users?.totalDonors],
               ["Total bookings", ov.totalBookings ?? data.bookings?.totalBookings],
@@ -129,6 +153,17 @@ export default function AdminDashboard() {
               ["Completed donations", ov.completedDonations ?? data.donations?.completedDonations],
               ["Active donations", ov.activeDonations ?? data.donations?.activeDonations],
               ["Pending bookings", ov.pendingBookings ?? data.bookings?.pendingBookings],
+=======
+              ["Total users", data.users.totalUsers],
+              ["Total donors", data.users.totalDonors],
+              ["Total bookings", data.bookings?.totalBookings ?? 0],
+              ["Pending bookings", data.bookings?.pendingRequests ?? data.requests.pendingRequests],
+              ["Confirmed bookings", data.bookings?.confirmedBookings ?? 0],
+              ["Completed donations", data.donations.completedDonations],
+              ["Active donations", data.donations.activeDonations],
+              ["Total donations", data.donations.totalDonations],
+              ["Meals available", data.analytics.mealsAvailable],
+>>>>>>> ffc4eea (kkr)
               ["System errors", data.systemErrors]
             ].map(([label, value]) => (
               <div key={label} className="glass">
@@ -211,8 +246,36 @@ export default function AdminDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+<<<<<<< HEAD
           )}
         </div>
+=======
+
+            <div className="glass h-72">
+              <h3 className="mb-2 font-semibold">Daily bookings (90d)</h3>
+              <ResponsiveContainer width="100%" height="90%">
+                <BarChart data={trends.dailyBookings || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#1565C0" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="glass max-h-72 overflow-y-auto">
+              <h3 className="mb-2 font-semibold">Live activity feed</h3>
+              {liveFeed.map((log) => (
+                <div key={log.id} className="border-b border-green-100 py-2 text-sm dark:border-slate-700">
+                  <strong>{log.action}</strong> — {log.user?.name || "System"}
+                  <p className="text-xs text-slate-500">{new Date(log.createdAt).toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+>>>>>>> ffc4eea (kkr)
       )}
 
       {tab === "users" && (

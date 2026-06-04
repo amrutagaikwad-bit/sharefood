@@ -50,13 +50,21 @@ export default function ReceiverDashboard() {
     socket.on("donation:created", refresh);
     socket.on("donation:updated", refresh);
     socket.on("donation:servings", refresh);
+<<<<<<< HEAD
     socket.on("booking:created", refresh);
+=======
+    socket.on("request:updated", refresh);
+>>>>>>> ffc4eea (kkr)
     socket.on("booking:updated", refresh);
     return () => {
       socket.off("donation:created", refresh);
       socket.off("donation:updated", refresh);
       socket.off("donation:servings", refresh);
+<<<<<<< HEAD
       socket.off("booking:created", refresh);
+=======
+      socket.off("request:updated", refresh);
+>>>>>>> ffc4eea (kkr)
       socket.off("booking:updated", refresh);
     };
   }, [socket]);

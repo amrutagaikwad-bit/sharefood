@@ -15,7 +15,10 @@ model User {
   role           Role
   phone          String?
   isBlocked      Boolean          @default(false)
+  isBanned       Boolean          @default(false)
+  lastLoginAt    DateTime?
   donations      Donation[]       @relation("DonorDonations")
+  loginHistory   LoginHistory[]
   pickupRequests Request[]        @relation("ReceiverRequests")
   notifications  Notification[]
   activityLogs   ActivityLog[]
@@ -69,8 +72,14 @@ model Request {
   donation         Donation      @relation(fields: [donationId], references: [id])
   receiver         User          @relation("ReceiverRequests", fields: [receiverId], references: [id])
   status           RequestStatus @default(PENDING)
+<<<<<<< HEAD
   servingsReserved Int           @default(1) // number of people / servings to be served
   bookingDateTime  DateTime?     // preferred pickup / booking time
+=======
+  peopleToServe    Int           @default(1)
+  servingsReserved Int           @default(1)
+  bookingDateTime  DateTime      @default(now())
+>>>>>>> ffc4eea (kkr)
   pickupSlot       DateTime?
   message          String?
   createdAt        DateTime      @default(now())
@@ -196,4 +205,25 @@ model SiteSetting {
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model LoginHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String
+  success   Boolean  @default(true)
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model SecurityLog {
+  id        Int      @id @default(autoincrement())
+  type      String
+  email     String?
+  userId    Int?
+  message   String
+  metadata  String?
+  createdAt DateTime @default(now())
 }

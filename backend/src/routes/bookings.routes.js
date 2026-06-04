@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import express from "express";
 import { authRequired, roleRequired } from "../middleware/auth.js";
 import {
@@ -94,3 +95,11 @@ router.patch("/:id/complete", authRequired, async (req, res) => {
 });
 
 export default router;
+=======
+/**
+ * Food booking API — same handlers as /api/requests with booking-oriented naming.
+ */
+import requestRoutes from "./requests.routes.js";
+
+export default requestRoutes;
+>>>>>>> ffc4eea (kkr)

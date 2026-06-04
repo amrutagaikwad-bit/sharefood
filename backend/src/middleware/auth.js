@@ -12,6 +12,7 @@ export async function authRequired(req, res, next) {
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) return res.status(401).json({ message: "Unauthorized" });
     if (user.isBlocked) return res.status(403).json({ message: "Account suspended" });
+    if (user.isBanned) return res.status(403).json({ message: "Account banned" });
     req.user = user;
     next();
   } catch {

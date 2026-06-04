@@ -13,11 +13,21 @@ export default function DonationDetailsPage() {
   const { user } = useAuth();
   const { notify } = useNotifications();
   const [data, setData] = useState(null);
+<<<<<<< HEAD
 
   const load = () => api.get(`/donations/${id}`).then((res) => setData(res.data));
 
   useEffect(() => { load(); }, [id]);
 
+=======
+
+  const load = () => api.get(`/donations/${id}`).then((res) => setData(res.data));
+
+  useEffect(() => {
+    load();
+  }, [id]);
+
+>>>>>>> ffc4eea (kkr)
   const reportDonation = async () => {
     await api.post(`/donations/${id}/report`, { reason: "User reported" });
     notify("Donation reported to admin");
@@ -26,6 +36,11 @@ export default function DonationDetailsPage() {
   if (!data) return <div className="mx-auto max-w-4xl p-4"><div className="skeleton h-96" /></div>;
 
   const contact = data.contactPhone || data.donor?.phone || data.donor?.email;
+  const canBook =
+    user?.role === "RECEIVER" &&
+    ["ACTIVE", "REQUESTED", "RESERVED"].includes(data.status) &&
+    data.servingsRemaining > 0 &&
+    !data.isPaused;
 
   return (
     <div className="mx-auto max-w-4xl p-4">
@@ -53,6 +68,7 @@ export default function DonationDetailsPage() {
               <Phone size={16} /> Contact Donor
             </a>
           )}
+<<<<<<< HEAD
           {user?.role === "RECEIVER" && data.status === "ACTIVE" && data.servingsRemaining > 0 && (
             <BookingForm
               donation={data}
@@ -67,6 +83,23 @@ export default function DonationDetailsPage() {
           {!user && data.servingsRemaining > 0 && (
             <button className="btn-primary w-full" onClick={() => navigate("/auth")}>Login to book food</button>
           )}
+=======
+          {canBook ? (
+            <BookingForm
+              donationId={id}
+              maxServings={data.servingsRemaining}
+              onSuccess={() => {
+                notify("Booking submitted — waiting for donor confirmation");
+                load();
+              }}
+              onError={(msg) => notify(msg)}
+            />
+          ) : !user ? (
+            <button className="btn-primary w-full" type="button" onClick={() => navigate("/auth")}>
+              Sign in to book food
+            </button>
+          ) : null}
+>>>>>>> ffc4eea (kkr)
           <button className="text-sm text-red-600 underline" type="button" onClick={reportDonation}>Report this listing</button>
         </div>
       </article>

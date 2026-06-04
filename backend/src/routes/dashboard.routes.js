@@ -10,6 +10,7 @@ router.get("/", authRequired, async (req, res) => {
   const { lat, lng } = req.query;
 
   if (req.user.role === "DONOR") {
+<<<<<<< HEAD
     const [total, active, completed, expired, recent, pendingRequests, bookingStats] = await Promise.all([
       prisma.donation.count({ where: { donorId: req.user.id, status: { not: "DELETED" } } }),
       prisma.donation.count({
@@ -28,6 +29,38 @@ router.get("/", authRequired, async (req, res) => {
       }),
       getDonorBookingStats(req.user.id)
     ]);
+=======
+    const donorDonationFilter = { donation: { donorId: req.user.id } };
+    const [total, active, completed, expired, recent, pendingRequests, totalBookings, confirmedBookings, completedBookings, peopleServedAgg] =
+      await Promise.all([
+        prisma.donation.count({ where: { donorId: req.user.id, status: { not: "DELETED" } } }),
+        prisma.donation.count({
+          where: { donorId: req.user.id, status: { in: ["ACTIVE", "REQUESTED", "RESERVED", "PICKED_UP"] } }
+        }),
+        prisma.donation.count({ where: { donorId: req.user.id, status: "COMPLETED" } }),
+        prisma.donation.count({ where: { donorId: req.user.id, status: "EXPIRED" } }),
+        prisma.donation.findMany({
+          where: { donorId: req.user.id, status: { not: "DELETED" } },
+          orderBy: { createdAt: "desc" },
+          take: 6,
+          include: { requests: { include: { receiver: { select: { name: true, phone: true } } } } }
+        }),
+        prisma.request.count({ where: { ...donorDonationFilter, status: "PENDING" } }),
+        prisma.request.count({ where: donorDonationFilter }),
+        prisma.request.count({ where: { ...donorDonationFilter, status: { in: ["CONFIRMED", "ACCEPTED", "RESERVED"] } } }),
+        prisma.request.count({ where: { ...donorDonationFilter, status: "COMPLETED" } }),
+        prisma.request.aggregate({
+          where: { ...donorDonationFilter, status: "COMPLETED" },
+          _sum: { peopleToServe: true }
+        })
+      ]);
+
+    const remainingServings = await prisma.donation.aggregate({
+      where: { donorId: req.user.id, status: { in: ["ACTIVE", "REQUESTED", "RESERVED"] } },
+      _sum: { servingsRemaining: true }
+    });
+
+>>>>>>> ffc4eea (kkr)
     return res.json({
       role: "DONOR",
       total,
@@ -36,7 +69,18 @@ router.get("/", authRequired, async (req, res) => {
       expired,
       pendingRequests,
       recent,
+<<<<<<< HEAD
       bookings: bookingStats
+=======
+      bookingStats: {
+        totalBookings,
+        pendingBookings: pendingRequests,
+        confirmedBookings,
+        completedBookings,
+        peopleServed: peopleServedAgg._sum.peopleToServe || 0,
+        remainingServings: remainingServings._sum.servingsRemaining || 0
+      }
+>>>>>>> ffc4eea (kkr)
     });
   }
 
