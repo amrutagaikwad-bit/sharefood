@@ -20,7 +20,7 @@ export default function MapBrowsePage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
-  const [maxDistance, setMaxDistance] = useState(10);
+  const [maxDistance, setgiMaxDistance] = useState(10);
   const [minServings, setMinServings] = useState(0);
   const [sort, setSort] = useState("distance");
   const [donorName, setDonorName] = useState("");
