@@ -2,22 +2,44 @@ import { useCallback, useEffect, useState } from "react";
 import api from "../api/client";
 import { useSocket } from "../context/SocketContext";
 
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function enrichWithDistance(donations, lat, lng) {
+  const userLat = Number(lat);
+  const userLng = Number(lng);
+  if (!Number.isFinite(userLat) || !Number.isFinite(userLng)) return donations;
+  return donations.map((d) => {
+    const distanceKm = haversineKm(userLat, userLng, Number(d.latitude), Number(d.longitude));
+    return { ...d, distanceKm, walkingTimeMinutes: Math.round((distanceKm / 5) * 60) };
+  });
+}
+
 export function useDonationFeed({
   lat,
   lng,
-  maxDistance = 10,
+  maxDistance = 25,
   category = "",
   q = "",
-  minServings = 1,
+  minServings = 0,
   sort = "distance",
   donorName = ""
 }) {
   const { socket } = useSocket();
   const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await api.get("/donations", {
         params: {
@@ -31,7 +53,15 @@ export function useDonationFeed({
           donorName: donorName || undefined
         }
       });
-      setDonations(res.data);
+      let list = res.data;
+      if (lat != null && lng != null) {
+        list = enrichWithDistance(list, lat, lng);
+        if (sort === "distance") list.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+      }
+      setDonations(list);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not load donations. Is the backend running?");
+      setDonations([]);
     } finally {
       setLoading(false);
     }
@@ -41,24 +71,42 @@ export function useDonationFeed({
     load();
   }, [load]);
 
+  const shouldHide = (d) =>
+    d.isPaused || d.isHidden || d.status === "DELETED" || d.status === "EXPIRED" || (d.servingsRemaining ?? 0) < minServings;
+
+  const mergeIncoming = useCallback(
+    (incoming) => {
+      if (shouldHide(incoming)) {
+        return (prev) => prev.filter((x) => x.id !== incoming.id);
+      }
+      let item = incoming;
+      if (lat != null && lng != null) {
+        [item] = enrichWithDistance([incoming], lat, lng);
+        if (item.distanceKm > maxDistance) {
+          return (prev) => prev.filter((x) => x.id !== incoming.id);
+        }
+      }
+      return (prev) => {
+        const exists = prev.some((x) => x.id === item.id);
+        if (!exists) return [item, ...prev];
+        return prev.map((x) => (x.id === item.id ? { ...x, ...item } : x));
+      };
+    },
+    [lat, lng, maxDistance, minServings]
+  );
+
   useEffect(() => {
     if (!socket) return;
 
-    const onCreated = (d) => setDonations((prev) => [d, ...prev.filter((x) => x.id !== d.id)]);
-    const onUpdated = (d) =>
-      setDonations((prev) => {
-        const filtered = d.isPaused || d.isHidden || d.status === "DELETED" || d.status === "EXPIRED"
-          ? prev.filter((x) => x.id !== d.id)
-          : prev;
-        const exists = filtered.some((x) => x.id === d.id);
-        if (!exists && !d.isPaused && !d.isHidden) return [d, ...filtered];
-        return filtered.map((x) => (x.id === d.id ? { ...x, ...d } : x));
-      });
+    const onCreated = (d) => setDonations(mergeIncoming(d));
+    const onUpdated = (d) => setDonations(mergeIncoming(d));
     const onServings = ({ donationId, servingsRemaining, servesCount }) =>
       setDonations((prev) =>
-        prev.map((x) =>
-          x.id === donationId ? { ...x, servingsRemaining, servesCount } : x
-        ).filter((x) => x.servingsRemaining > 0 && !x.isPaused)
+        prev
+          .map((x) =>
+            x.id === donationId ? { ...x, servingsRemaining, servesCount } : x
+          )
+          .filter((x) => !shouldHide(x))
       );
     const onDeleted = ({ id }) => setDonations((prev) => prev.filter((x) => x.id !== id));
     const onExpired = ({ ids }) => setDonations((prev) => prev.filter((x) => !ids.includes(x.id)));
@@ -76,7 +124,7 @@ export function useDonationFeed({
       socket.off("donation:deleted", onDeleted);
       socket.off("donation:expired", onExpired);
     };
-  }, [socket]);
+  }, [socket, mergeIncoming, minServings]);
 
-  return { donations, loading, reload: load };
+  return { donations, loading, error, reload: load };
 }

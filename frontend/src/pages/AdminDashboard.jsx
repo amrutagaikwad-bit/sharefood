@@ -28,6 +28,9 @@ export default function AdminDashboard() {
   const [liveFeed, setLiveFeed] = useState([]);
   const [tab, setTab] = useState("overview");
   const [userSearch, setUserSearch] = useState("");
+  const [requests, setRequests] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+  const [trends, setTrends] = useState([]);
 
   const load = async () => {
     const [dash, u, d, h, l] = await Promise.all([
@@ -48,6 +51,9 @@ export default function AdminDashboard() {
   useEffect(() => { load(); }, []);
   useEffect(() => {
     if (tab === "users") api.get("/admin/users", { params: { q: userSearch } }).then((r) => setUsers(r.data));
+    if (tab === "requests") api.get("/admin/requests").then((r) => setRequests(r.data));
+    if (tab === "notifications") api.get("/admin/notifications").then((r) => setAdminNotifications(r.data));
+    if (tab === "overview") api.get("/admin/analytics/trends").then((r) => setTrends(r.data.dailyDonations || []));
   }, [userSearch, tab]);
 
   useEffect(() => {
@@ -81,7 +87,7 @@ export default function AdminDashboard() {
   if (!data) return <div className="p-4"><div className="skeleton mx-auto h-48 max-w-7xl" /></div>;
 
   const chartData = (data.analytics?.topDonors || []).map((d) => ({ name: d.name, donations: d.count }));
-  const tabs = ["overview", "users", "donations", "map", "logs", "health"];
+  const tabs = ["overview", "users", "donations", "requests", "notifications", "map", "logs", "health"];
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4">
@@ -209,6 +215,30 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {tab === "requests" && (
+        <div className="glass space-y-2">
+          {requests.map((r) => (
+            <div key={r.id} className="rounded-xl border p-3 text-sm dark:border-slate-700">
+              <p className="font-medium">{r.donation?.foodName} — {r.receiver?.name}</p>
+              <p>{r.servingsReserved} servings · <StatusBadge status={r.status} /></p>
+              <p className="text-xs text-slate-500">{new Date(r.createdAt).toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "notifications" && (
+        <div className="glass max-h-[32rem] space-y-2 overflow-y-auto">
+          {adminNotifications.map((n) => (
+            <div key={n.id} className="border-b py-2 text-sm dark:border-slate-700">
+              <p className="font-medium">{n.title}</p>
+              <p>{n.message}</p>
+              <p className="text-xs text-slate-500">{n.user?.name} · {new Date(n.createdAt).toLocaleString()}</p>
+            </div>
+          ))}
         </div>
       )}
 

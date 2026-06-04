@@ -26,6 +26,14 @@ export function AuthProvider({ children }) {
     const res = await api.post("/auth/register", payload);
     localStorage.setItem("foodbridge_token", res.data.token);
     setUser(res.data.user);
+    return res.data.user;
+  };
+
+  const loginWithOtp = async (payload) => {
+    const res = await api.post("/auth/otp/verify", payload);
+    localStorage.setItem("foodbridge_token", res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
   };
 
   const logout = () => {
@@ -34,7 +42,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, loginWithOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );

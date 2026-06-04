@@ -216,4 +216,62 @@ router.patch("/reports/:id/resolve", async (req, res) => {
   res.json(report);
 });
 
+router.get("/requests", async (req, res) => {
+  const requests = await prisma.request.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: {
+      receiver: { select: { id: true, name: true, email: true } },
+      donation: { select: { id: true, foodName: true, status: true, donorId: true } }
+    }
+  });
+  res.json(requests);
+});
+
+router.get("/notifications", async (req, res) => {
+  const notifications = await prisma.notification.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { user: { select: { name: true, email: true, role: true } } }
+  });
+  res.json(notifications);
+});
+
+router.get("/settings", async (req, res) => {
+  const settings = await prisma.siteSetting.findMany({ orderBy: { key: "asc" } });
+  res.json(settings);
+});
+
+router.put("/settings/:key", async (req, res) => {
+  const key = req.params.key;
+  const value = String(req.body.value ?? "");
+  const setting = await prisma.siteSetting.upsert({
+    where: { key },
+    create: { key, value },
+    update: { value }
+  });
+  await logAdminAction({
+    adminId: req.user.id,
+    action: "SETTING_UPDATED",
+    targetType: "SiteSetting",
+    details: `${key}=${value}`
+  });
+  res.json(setting);
+});
+
+router.get("/analytics/trends", async (req, res) => {
+  const donations = await prisma.donation.findMany({
+    where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+    select: { createdAt: true, status: true, servingsRemaining: true }
+  });
+  const byDay = {};
+  donations.forEach((d) => {
+    const day = d.createdAt.toISOString().slice(0, 10);
+    byDay[day] = (byDay[day] || 0) + 1;
+  });
+  res.json({
+    dailyDonations: Object.entries(byDay).map(([date, count]) => ({ date, count }))
+  });
+});
+
 export default router;

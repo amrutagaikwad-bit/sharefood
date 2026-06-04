@@ -164,25 +164,31 @@ export function buildDonationPayload(form) {
     expiryTime = `${form.distributionDate}T${end}`;
   }
 
+  const toIso = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  };
+
   return {
-    foodName: form.foodName,
+    foodName: form.foodName?.trim(),
     category: form.category,
-    quantity: form.quantity,
+    quantity: String(form.quantity).trim(),
     servesCount: serves,
     servingsRemaining: form.servingsRemaining != null ? Number(form.servingsRemaining) : serves,
     description: form.description,
     image: form.image,
     latitude: Number(form.latitude),
     longitude: Number(form.longitude),
-    address: form.address,
+    address: form.address?.trim(),
     city: form.city,
     state: form.state,
     postalCode: form.postalCode,
     specialInstructions: form.specialInstructions,
     contactPhone: form.contactPhone,
-    preparationAt: form.preparationAt || (form.distributionDate ? `${form.distributionDate}T00:00` : null),
-    expiryTime,
-    pickupStart,
-    pickupEnd
+    preparationAt: toIso(form.preparationAt || (form.distributionDate ? `${form.distributionDate}T00:00` : null)),
+    expiryTime: toIso(expiryTime),
+    pickupStart: toIso(pickupStart),
+    pickupEnd: toIso(pickupEnd)
   };
 }

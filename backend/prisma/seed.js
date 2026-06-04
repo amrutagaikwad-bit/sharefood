@@ -71,6 +71,19 @@ async function main() {
     });
   }
 
+  const defaults = [
+    ["site_name", "FoodBridge"],
+    ["support_email", "support@foodbridge.com"],
+    ["max_donation_radius_km", "25"]
+  ];
+  for (const [key, value] of defaults) {
+    await prisma.siteSetting.upsert({
+      where: { key },
+      create: { key, value },
+      update: {}
+    });
+  }
+
   console.log("Seed complete. Admin:", admin.email);
 }
 

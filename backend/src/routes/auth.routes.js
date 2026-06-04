@@ -2,9 +2,11 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
+import { getJwtSecret } from "../config/env.js";
 import { authRequired } from "../middleware/auth.js";
 import { logActivity } from "../services/activity.service.js";
 import { createNotification, notifyAdmins } from "../services/notification.service.js";
+import { sendOtp, verifyOtp } from "../services/otp.service.js";
 
 const router = express.Router();
 
@@ -38,7 +40,7 @@ router.post("/register", async (req, res) => {
       meta: { userId: user.id }
     });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
     return res.status(201).json({
       token,
       user: sanitizeUser(user)
@@ -65,11 +67,53 @@ router.post("/login", async (req, res) => {
 
     await logActivity({ userId: user.id, action: "USER_LOGIN", entityType: "User", entityId: user.id });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
     return res.json({ token, user: sanitizeUser(user) });
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ message: "Failed to login" });
+  }
+});
+
+router.post("/otp/send", async (req, res) => {
+  try {
+    const { email, purpose = "login" } = req.body;
+    if (!["login", "register"].includes(purpose)) {
+      return res.status(400).json({ message: "Invalid purpose" });
+    }
+    const result = await sendOtp({ email, purpose });
+    return res.json(result);
+  } catch (err) {
+    return res.status(err.status || 500).json({ message: err.message || "Failed to send OTP" });
+  }
+});
+
+router.post("/otp/verify", async (req, res) => {
+  try {
+    const { email, code, purpose = "login", name, role, phone } = req.body;
+    const user = await verifyOtp({
+      email,
+      code,
+      purpose,
+      registerProfile: purpose === "register" ? { name, role, phone } : undefined
+    });
+
+    if (purpose === "register") {
+      await logActivity({ userId: user.id, action: "USER_REGISTERED_OTP", entityType: "User", entityId: user.id });
+      await notifyAdmins({
+        type: "NEW_USER",
+        title: "New user registered",
+        message: `${user.name} joined as ${user.role}`,
+        meta: { userId: user.id }
+      });
+    } else {
+      await logActivity({ userId: user.id, action: "USER_LOGIN_OTP", entityType: "User", entityId: user.id });
+    }
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
+    return res.json({ token, user: sanitizeUser(user) });
+  } catch (err) {
+    return res.status(err.status || 500).json({ message: err.message || "OTP verification failed" });
   }
 });
 

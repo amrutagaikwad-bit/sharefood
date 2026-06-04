@@ -51,7 +51,20 @@ app.use((_, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `\nPort ${PORT} is already in use. Stop the other backend:\n` +
+        `  cd sharefood && npm run kill-port\n`
+    );
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, () => {
   console.log(`FoodBridge API + Socket.io running on port ${PORT}`);
+  console.log(`Database: ${process.env.DATABASE_URL}`);
 });

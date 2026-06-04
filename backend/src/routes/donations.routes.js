@@ -46,12 +46,21 @@ const donorInclude = {
 router.post("/", authRequired, roleRequired("DONOR"), async (req, res) => {
   try {
     const { foodName, quantity, latitude, longitude, address, expiryTime } = req.body;
-    if (!foodName || !quantity || !latitude || !longitude || !address || !expiryTime) {
-      return res.status(400).json({ message: "Missing required fields" });
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!foodName?.trim() || !quantity?.trim() || !address?.trim() || !expiryTime) {
+      return res.status(400).json({ message: "Missing required fields: food name, quantity, address, expiry" });
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ message: "Valid latitude and longitude are required (use GPS or address search)" });
+    }
+    const expiry = new Date(expiryTime);
+    if (Number.isNaN(expiry.getTime())) {
+      return res.status(400).json({ message: "Invalid expiry date/time" });
     }
 
     const donation = await prisma.donation.create({
-      data: buildDonationData(req.body, req.user.id, req.user.phone),
+      data: buildDonationData({ ...req.body, latitude: lat, longitude: lng, expiryTime: expiry }, req.user.id, req.user.phone),
       include: { donor: { select: { id: true, name: true, phone: true, email: true } } }
     });
 
@@ -109,7 +118,7 @@ router.get("/", authOptional, async (req, res) => {
       isFlagged: false,
       isHidden: false,
       isPaused: false,
-      servingsRemaining: { gte: Number(minServings) || 1 }
+      servingsRemaining: { gte: Math.max(0, Number(minServings) || 0) }
     },
     include: {
       donor: { select: { id: true, name: true, phone: true, email: true } },

@@ -21,7 +21,7 @@ export default function MapBrowsePage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [maxDistance, setMaxDistance] = useState(10);
-  const [minServings, setMinServings] = useState(1);
+  const [minServings, setMinServings] = useState(0);
   const [sort, setSort] = useState("distance");
   const [donorName, setDonorName] = useState("");
   const [servingsToReserve, setServingsToReserve] = useState({});
@@ -35,7 +35,7 @@ export default function MapBrowsePage() {
   const searchLat = lat ?? gps?.lat;
   const searchLng = lng ?? gps?.lng;
 
-  const { donations, loading } = useDonationFeed({
+  const { donations, loading, error, reload } = useDonationFeed({
     lat: searchLat,
     lng: searchLng,
     maxDistance,
@@ -90,6 +90,13 @@ export default function MapBrowsePage() {
       </div>
 
       <MapView userLocation={searchLat && searchLng ? [searchLat, searchLng] : null} donations={donations} onSelect={(d) => navigate(`/donations/${d.id}`)} />
+
+      {error && (
+        <div className="card border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          <p>{error}</p>
+          <button type="button" className="btn-secondary mt-2 text-sm" onClick={reload}>Retry</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
