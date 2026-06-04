@@ -36,7 +36,7 @@ export default function ReceiverDashboard() {
   const loadRequests = async () => {
     const [dash, reqs] = await Promise.all([
       api.get("/dashboard", { params: { lat: searchLat, lng: searchLng } }),
-      api.get("/requests/mine")
+      api.get("/bookings/mine")
     ]);
     setStats(dash.data);
     setRequests(reqs.data);
@@ -50,23 +50,27 @@ export default function ReceiverDashboard() {
     socket.on("donation:created", refresh);
     socket.on("donation:updated", refresh);
     socket.on("donation:servings", refresh);
+    socket.on("booking:created", refresh);
+    socket.on("booking:updated", refresh);
     return () => {
       socket.off("donation:created", refresh);
       socket.off("donation:updated", refresh);
       socket.off("donation:servings", refresh);
+      socket.off("booking:created", refresh);
+      socket.off("booking:updated", refresh);
     };
   }, [socket]);
 
   const cancelRequest = async (id) => {
-    await api.patch(`/requests/${id}/cancel`);
-    notify("Reservation cancelled — servings restored");
+    await api.patch(`/bookings/${id}/cancel`);
+    notify("Booking cancelled — servings restored");
     loadRequests();
   };
 
   const requestPickup = async (donationId, amount = 1) => {
     try {
-      await api.post("/requests", { donationId, servingsReserved: amount });
-      notify(`Reserved ${amount} servings`);
+      await api.post("/bookings", { donationId, peopleToServe: amount });
+      notify(`Booked ${amount} servings — pending donor confirmation`);
       loadRequests();
     } catch (err) {
       notify(err?.response?.data?.message || "Failed");
@@ -80,7 +84,10 @@ export default function ReceiverDashboard() {
           <h1 className="text-3xl font-bold">Receiver Hub</h1>
           <p className="text-sm text-slate-600">Find food near your chosen location</p>
         </div>
-        <Link to="/map" className="btn-primary">Full map view</Link>
+        <div className="flex gap-2">
+          <Link to="/bookings" className="btn-secondary">My bookings</Link>
+          <Link to="/map" className="btn-primary">Full map view</Link>
+        </div>
       </div>
 
       <LocationPicker />
@@ -128,10 +135,11 @@ export default function ReceiverDashboard() {
           {requests.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
               <div>
-                <p className="font-medium">{r.donation?.foodName} — {r.servingsReserved} servings</p>
+                <p className="font-medium">{r.donation?.foodName} — {r.peopleToServe ?? r.servingsReserved} people</p>
                 <StatusBadge status={r.status} />
+                <p className="text-xs text-slate-500">{r.bookingDateTime ? new Date(r.bookingDateTime).toLocaleString() : ""}</p>
               </div>
-              {["PENDING", "ACCEPTED", "RESERVED"].includes(r.status) && (
+              {["Pending", "Confirmed", "PENDING", "CONFIRMED", "ACCEPTED", "RESERVED"].includes(r.status) && (
                 <button type="button" className="btn-secondary text-sm" onClick={() => cancelRequest(r.id)}>Cancel</button>
               )}
             </div>

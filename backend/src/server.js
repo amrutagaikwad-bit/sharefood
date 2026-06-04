@@ -8,6 +8,7 @@ import morgan from "morgan";
 import authRoutes from "./routes/auth.routes.js";
 import donationRoutes from "./routes/donations.routes.js";
 import requestRoutes from "./routes/requests.routes.js";
+import bookingRoutes from "./routes/bookings.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import notificationRoutes from "./routes/notifications.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
@@ -36,6 +37,7 @@ app.get("/api/health/public", (_, res) => res.json({ ok: true, service: "FoodBri
 app.use("/api/auth", authRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/requests", requestRoutes);
+app.use("/api/bookings", bookingRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);

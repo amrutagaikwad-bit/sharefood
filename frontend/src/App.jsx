@@ -11,6 +11,7 @@ import DashboardPage from "./pages/DashboardPage";
 import DonationDetailsPage from "./pages/DonationDetailsPage";
 import LandingPage from "./pages/LandingPage";
 import MapBrowsePage from "./pages/MapBrowsePage";
+import MyBookingsPage from "./pages/MyBookingsPage";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/donate/new" element={<ProtectedRoute role="DONOR"><CreateDonationPage /></ProtectedRoute>} />
         <Route path="/donate/edit/:id" element={<ProtectedRoute role="DONOR"><EditDonationPage /></ProtectedRoute>} />
+        <Route path="/bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>

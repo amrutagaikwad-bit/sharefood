@@ -12,7 +12,12 @@ const styles = {
   ACCEPTED: "bg-green-100 text-green-800",
   REJECTED: "bg-red-100 text-red-700",
   CANCELLED: "bg-gray-200 text-gray-600",
-  PAUSED: "bg-orange-100 text-orange-800"
+  PAUSED: "bg-orange-100 text-orange-800",
+  CONFIRMED: "bg-green-100 text-green-800",
+  Pending: "bg-amber-100 text-amber-800",
+  Confirmed: "bg-green-100 text-green-800",
+  Completed: "bg-emerald-100 text-emerald-800",
+  Cancelled: "bg-gray-200 text-gray-600"
 };
 
 export default function StatusBadge({ status }) {

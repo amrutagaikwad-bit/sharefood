@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../config/prisma.js";
 import { authRequired } from "../middleware/auth.js";
 import { enrichWithDistance } from "../utils/geo.js";
+import { getDonorBookingStats } from "../services/booking.service.js";
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ router.get("/", authRequired, async (req, res) => {
   const { lat, lng } = req.query;
 
   if (req.user.role === "DONOR") {
-    const [total, active, completed, expired, recent, pendingRequests] = await Promise.all([
+    const [total, active, completed, expired, recent, pendingRequests, bookingStats] = await Promise.all([
       prisma.donation.count({ where: { donorId: req.user.id, status: { not: "DELETED" } } }),
       prisma.donation.count({
         where: { donorId: req.user.id, status: { in: ["ACTIVE", "REQUESTED", "RESERVED", "PICKED_UP"] } }
@@ -24,7 +25,8 @@ router.get("/", authRequired, async (req, res) => {
       }),
       prisma.request.count({
         where: { donation: { donorId: req.user.id }, status: "PENDING" }
-      })
+      }),
+      getDonorBookingStats(req.user.id)
     ]);
     return res.json({
       role: "DONOR",
@@ -33,7 +35,8 @@ router.get("/", authRequired, async (req, res) => {
       completed,
       expired,
       pendingRequests,
-      recent
+      recent,
+      bookings: bookingStats
     });
   }
 
@@ -55,12 +58,13 @@ router.get("/", authRequired, async (req, res) => {
       nearby = nearby.slice(0, 12);
     }
 
-    const [requestedPickups, pickupHistory, savedCount] = await Promise.all([
+    const [requestedPickups, pickupHistory, savedCount, myBookings] = await Promise.all([
       prisma.request.count({
-        where: { receiverId: req.user.id, status: { in: ["PENDING", "ACCEPTED", "RESERVED"] } }
+        where: { receiverId: req.user.id, status: { in: ["PENDING", "CONFIRMED", "ACCEPTED", "RESERVED"] } }
       }),
       prisma.request.count({ where: { receiverId: req.user.id, status: "COMPLETED" } }),
-      prisma.savedDonation.count({ where: { userId: req.user.id } })
+      prisma.savedDonation.count({ where: { userId: req.user.id } }),
+      prisma.request.count({ where: { receiverId: req.user.id } })
     ]);
 
     return res.json({
@@ -68,6 +72,7 @@ router.get("/", authRequired, async (req, res) => {
       requestedPickups,
       pickupHistory,
       savedCount,
+      totalBookings: myBookings,
       nearbyDonations: nearby
     });
   }

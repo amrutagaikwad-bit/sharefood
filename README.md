@@ -146,8 +146,11 @@ VITE_SOCKET_URL="http://localhost:5000"
 
 - `POST /api/auth/register` `POST /api/auth/login`
 - `GET/POST /api/donations` — public browse with optional auth
-- `POST /api/requests` — receiver pickup requests
-- `PATCH /api/requests/:id/accept|reject|reserve|cancel|complete`
+- `POST /api/bookings` — create food booking (receiver)
+- `GET /api/bookings/mine` — list bookings
+- `PATCH /api/bookings/:id/confirm|reject|cancel|complete` — donor/receiver actions
+- `POST /api/requests` — legacy alias for bookings
+- `PATCH /api/requests/:id/accept|reject|cancel|complete` — legacy alias
 - `GET /api/dashboard` — role-based stats
 - `GET /api/notifications`
 - `GET /api/admin/*` — admin only

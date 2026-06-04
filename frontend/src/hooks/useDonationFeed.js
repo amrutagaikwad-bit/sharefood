@@ -116,6 +116,8 @@ export function useDonationFeed({
     socket.on("donation:servings", onServings);
     socket.on("donation:deleted", onDeleted);
     socket.on("donation:expired", onExpired);
+    socket.on("booking:created", () => load());
+    socket.on("booking:updated", () => load());
 
     return () => {
       socket.off("donation:created", onCreated);
@@ -123,6 +125,8 @@ export function useDonationFeed({
       socket.off("donation:servings", onServings);
       socket.off("donation:deleted", onDeleted);
       socket.off("donation:expired", onExpired);
+      socket.off("booking:created");
+      socket.off("booking:updated");
     };
   }, [socket, mergeIncoming, minServings]);
 

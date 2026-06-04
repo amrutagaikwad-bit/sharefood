@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../config/prisma.js";
 import { authRequired, roleRequired } from "../middleware/auth.js";
 import { logActivity, logAdminAction } from "../services/activity.service.js";
+import { getAdminAnalytics, listAdminBookings } from "../services/analytics.service.js";
 import { emitEvent, getSocketStats } from "../socket.js";
 
 const router = express.Router();
@@ -9,6 +10,7 @@ router.use(authRequired, roleRequired("ADMIN"));
 
 router.get("/dashboard", async (req, res) => {
   const socketStats = getSocketStats();
+  const analytics = await getAdminAnalytics();
   const [
     totalUsers,
     totalDonors,
@@ -22,6 +24,9 @@ router.get("/dashboard", async (req, res) => {
     pendingRequests,
     approvedRequests,
     rejectedRequests,
+    totalBookings,
+    confirmedBookings,
+    completedBookings,
     mealsAvailableAgg,
     mealsDistributedAgg,
     recentActivity,
@@ -39,8 +44,11 @@ router.get("/dashboard", async (req, res) => {
     prisma.donation.count({ where: { status: "COMPLETED" } }),
     prisma.donation.count({ where: { status: "EXPIRED" } }),
     prisma.request.count({ where: { status: "PENDING" } }),
-    prisma.request.count({ where: { status: { in: ["ACCEPTED", "RESERVED", "COMPLETED"] } } }),
-    prisma.request.count({ where: { status: "REJECTED" } }),
+    prisma.request.count({ where: { status: { in: ["ACCEPTED", "RESERVED", "CONFIRMED", "COMPLETED"] } } }),
+    prisma.request.count({ where: { status: { in: ["REJECTED", "CANCELLED"] } } }),
+    prisma.request.count(),
+    prisma.request.count({ where: { status: { in: ["CONFIRMED", "ACCEPTED", "RESERVED"] } } }),
+    prisma.request.count({ where: { status: "COMPLETED" } }),
     prisma.donation.aggregate({ where: { status: { in: ["ACTIVE", "REQUESTED", "RESERVED"] } }, _sum: { servingsRemaining: true } }),
     prisma.request.aggregate({ where: { status: "COMPLETED" }, _sum: { servingsReserved: true } }),
     prisma.activityLog.findMany({ orderBy: { createdAt: "desc" }, take: 30, include: { user: { select: { name: true, email: true, role: true } } } }),
@@ -60,8 +68,16 @@ router.get("/dashboard", async (req, res) => {
   res.json({
     users: { totalUsers, totalDonors, totalReceivers, activeUsers, blockedUsers, onlineUsers: socketStats.onlineUsers },
     donations: { totalDonations, activeDonations, completedDonations, expiredDonations },
+    bookings: {
+      totalBookings,
+      pendingBookings: pendingRequests,
+      confirmedBookings,
+      completedBookings,
+      cancelledBookings: rejectedRequests
+    },
     requests: { pendingRequests, approvedRequests, rejectedRequests },
     analytics: {
+      ...analytics,
       mealsAvailable,
       mealsDistributed,
       foodWastePreventedKg: mealsDistributed * 0.4,
@@ -217,15 +233,33 @@ router.patch("/reports/:id/resolve", async (req, res) => {
 });
 
 router.get("/requests", async (req, res) => {
-  const requests = await prisma.request.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: {
-      receiver: { select: { id: true, name: true, email: true } },
-      donation: { select: { id: true, foodName: true, status: true, donorId: true } }
-    }
+  res.json(await listAdminBookings({ status: req.query.status, q: req.query.q }));
+});
+
+router.get("/bookings", async (req, res) => {
+  res.json(await listAdminBookings({ status: req.query.status, q: req.query.q }));
+});
+
+router.get("/donors", async (req, res) => {
+  const { q = "" } = req.query;
+  let donors = await prisma.user.findMany({
+    where: { role: "DONOR" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      isBlocked: true,
+      createdAt: true,
+      _count: { select: { donations: true } }
+    },
+    orderBy: { createdAt: "desc" }
   });
-  res.json(requests);
+  if (q) {
+    const term = String(q).toLowerCase();
+    donors = donors.filter((d) => d.name.toLowerCase().includes(term) || d.email.toLowerCase().includes(term));
+  }
+  res.json(donors);
 });
 
 router.get("/notifications", async (req, res) => {
@@ -260,17 +294,12 @@ router.put("/settings/:key", async (req, res) => {
 });
 
 router.get("/analytics/trends", async (req, res) => {
-  const donations = await prisma.donation.findMany({
-    where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
-    select: { createdAt: true, status: true, servingsRemaining: true }
-  });
-  const byDay = {};
-  donations.forEach((d) => {
-    const day = d.createdAt.toISOString().slice(0, 10);
-    byDay[day] = (byDay[day] || 0) + 1;
-  });
+  const data = await getAdminAnalytics();
   res.json({
-    dailyDonations: Object.entries(byDay).map(([date, count]) => ({ date, count }))
+    dailyDonations: data.trends.donationTrends,
+    dailyBookings: data.trends.bookingTrends,
+    periods: data.periods,
+    overview: data.overview
   });
 });
 

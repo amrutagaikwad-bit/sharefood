@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { MapPin, Phone, Clock } from "lucide-react";
 import api from "../api/client";
+import BookingForm from "../components/BookingForm";
 import StatusBadge from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
@@ -12,26 +13,10 @@ export default function DonationDetailsPage() {
   const { user } = useAuth();
   const { notify } = useNotifications();
   const [data, setData] = useState(null);
-  const [pickupSlot, setPickupSlot] = useState("");
-  const [servings, setServings] = useState(1);
 
-  useEffect(() => {
-    api.get(`/donations/${id}`).then((res) => setData(res.data));
-  }, [id]);
+  const load = () => api.get(`/donations/${id}`).then((res) => setData(res.data));
 
-  const requestPickup = async () => {
-    if (!user) return navigate("/auth");
-    try {
-      await api.post("/requests", {
-        donationId: Number(id),
-        pickupSlot: pickupSlot || undefined,
-        servingsReserved: Number(servings)
-      });
-      notify("Pickup requested successfully");
-    } catch (err) {
-      notify(err?.response?.data?.message || "Request failed");
-    }
-  };
+  useEffect(() => { load(); }, [id]);
 
   const reportDonation = async () => {
     await api.post(`/donations/${id}/report`, { reason: "User reported" });
@@ -60,10 +45,8 @@ export default function DonationDetailsPage() {
           <p><strong>Quantity:</strong> {data.quantity}</p>
           <p><strong>Servings:</strong> <span className="font-bold text-primary">{data.servingsRemaining}</span> / {data.servesCount} available</p>
           <p className="flex items-center gap-1"><MapPin size={16} /> {data.address}</p>
-          <p><strong>City:</strong> {data.city} {data.state} {data.postalCode}</p>
           <p className="flex items-center gap-1"><Clock size={16} /> Expires: {new Date(data.expiryTime).toLocaleString()}</p>
           {data.pickupStart && <p>Pickup window: {new Date(data.pickupStart).toLocaleString()} — {new Date(data.pickupEnd).toLocaleString()}</p>}
-          <p><strong>Instructions:</strong> {data.specialInstructions || "Contact donor"}</p>
           <p><strong>Donor:</strong> {data.donor?.name}</p>
           {contact && (
             <a href={`tel:${contact}`} className="btn-secondary inline-flex items-center gap-2">
@@ -71,13 +54,20 @@ export default function DonationDetailsPage() {
             </a>
           )}
           {user?.role === "RECEIVER" && data.status === "ACTIVE" && data.servingsRemaining > 0 && (
-            <div className="space-y-2 pt-2">
-              <input className="input-field" type="number" min={1} max={data.servingsRemaining} value={servings} onChange={(e) => setServings(e.target.value)} placeholder="Servings to reserve" />
-              <input className="input-field" type="datetime-local" value={pickupSlot} onChange={(e) => setPickupSlot(e.target.value)} />
-              <button className="btn-primary w-full" onClick={requestPickup}>Reserve servings</button>
-            </div>
+            <BookingForm
+              donation={data}
+              onSuccess={() => {
+                notify("Booking submitted — awaiting donor confirmation");
+                load();
+                navigate("/bookings");
+              }}
+              onError={(msg) => notify(msg)}
+            />
           )}
-          <button className="text-sm text-red-600 underline" onClick={reportDonation}>Report this listing</button>
+          {!user && data.servingsRemaining > 0 && (
+            <button className="btn-primary w-full" onClick={() => navigate("/auth")}>Login to book food</button>
+          )}
+          <button className="text-sm text-red-600 underline" type="button" onClick={reportDonation}>Report this listing</button>
         </div>
       </article>
     </div>

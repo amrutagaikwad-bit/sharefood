@@ -61,6 +61,7 @@ model Donation {
   updatedAt           DateTime         @updatedAt
 }
 
+// Food booking / reservation (receiver books servings from a donation)
 model Request {
   id               Int           @id @default(autoincrement())
   donationId       Int
@@ -68,7 +69,8 @@ model Request {
   donation         Donation      @relation(fields: [donationId], references: [id])
   receiver         User          @relation("ReceiverRequests", fields: [receiverId], references: [id])
   status           RequestStatus @default(PENDING)
-  servingsReserved Int           @default(1)
+  servingsReserved Int           @default(1) // number of people / servings to be served
+  bookingDateTime  DateTime?     // preferred pickup / booking time
   pickupSlot       DateTime?
   message          String?
   createdAt        DateTime      @default(now())
@@ -164,6 +166,7 @@ enum DonationStatus {
 
 enum RequestStatus {
   PENDING
+  CONFIRMED
   ACCEPTED
   REJECTED
   RESERVED

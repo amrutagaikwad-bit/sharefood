@@ -11,17 +11,17 @@ export default function DonorDashboard() {
   const { socket } = useSocket();
   const [data, setData] = useState(null);
   const [donations, setDonations] = useState([]);
-  const [requests, setRequests] = useState([]);
+  const [bookings, setBookings] = useState([]);
 
   const load = async () => {
-    const [dash, mine, reqs] = await Promise.all([
+    const [dash, mine, bookingList] = await Promise.all([
       api.get("/dashboard"),
       api.get("/donations/mine"),
-      api.get("/requests/mine")
+      api.get("/bookings/mine")
     ]);
     setData(dash.data);
     setDonations(mine.data);
-    setRequests(reqs.data);
+    setBookings(bookingList.data);
   };
 
   useEffect(() => { load(); }, []);
@@ -29,12 +29,16 @@ export default function DonorDashboard() {
   useEffect(() => {
     if (!socket) return;
     const refresh = () => load();
+    socket.on("booking:created", refresh);
+    socket.on("booking:updated", refresh);
     socket.on("request:created", refresh);
     socket.on("request:updated", refresh);
     socket.on("donation:created", refresh);
     socket.on("donation:updated", refresh);
     socket.on("donation:servings", refresh);
     return () => {
+      socket.off("booking:created", refresh);
+      socket.off("booking:updated", refresh);
       socket.off("request:created", refresh);
       socket.off("request:updated", refresh);
       socket.off("donation:created", refresh);
@@ -55,6 +59,11 @@ export default function DonorDashboard() {
 
   if (!data) return <div className="p-4"><div className="skeleton mx-auto h-40 max-w-6xl" /></div>;
 
+  const stats = data.bookings || {};
+  const pending = bookings.filter((b) => b.status === "Pending");
+  const confirmed = bookings.filter((b) => b.status === "Confirmed");
+  const history = bookings.filter((b) => ["Completed", "Cancelled"].includes(b.status));
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,19 +71,23 @@ export default function DonorDashboard() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Donor Command Center
           </h1>
-          <p className="text-sm text-slate-600">Manage multiple listings — each with its own location</p>
+          <p className="text-sm text-slate-600">Manage donations and food bookings in real time</p>
         </div>
         <Link to="/donate/new" className="btn-primary flex items-center gap-2">
           <PlusCircle size={18} /> Create Food Donation
         </Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Total", value: data.total },
-          { label: "Active", value: data.active },
-          { label: "Completed", value: data.completed },
-          { label: "Pending requests", value: data.pendingRequests }
+          { label: "Total listings", value: data.total },
+          { label: "Active listings", value: data.active },
+          { label: "Total bookings", value: stats.totalBookings ?? 0 },
+          { label: "Pending bookings", value: stats.pendingBookings ?? pending.length },
+          { label: "Confirmed", value: stats.confirmedBookings ?? confirmed.length },
+          { label: "People served", value: stats.peopleServed ?? 0 },
+          { label: "Remaining servings", value: stats.remainingServings ?? "—" },
+          { label: "Completed bookings", value: stats.completedBookings ?? 0 }
         ].map((s) => (
           <div key={s.label} className="glass text-center">
             <p className="text-2xl font-bold text-primary">{s.value}</p>
@@ -84,10 +97,60 @@ export default function DonorDashboard() {
       </div>
 
       <section className="glass">
+        <h2 className="text-lg font-semibold">Pending bookings — confirm or decline</h2>
+        <div className="mt-3 space-y-2">
+          {pending.length === 0 && <p className="text-sm text-slate-500">No pending bookings.</p>}
+          {pending.map((b) => (
+            <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
+              <div>
+                <p className="font-medium">{b.receiver?.name} — {b.peopleToServe} people</p>
+                <p className="text-sm">{b.donation?.foodName}</p>
+                <p className="text-xs text-slate-500">{new Date(b.bookingDateTime).toLocaleString()}</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/confirm`), "Booking confirmed")}>Accept</button>
+                <button type="button" className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/reject`), "Booking declined")}>Reject</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="glass">
+        <h2 className="text-lg font-semibold">Confirmed bookings</h2>
+        <div className="mt-3 space-y-2">
+          {confirmed.length === 0 && <p className="text-sm text-slate-500">None yet.</p>}
+          {confirmed.map((b) => (
+            <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
+              <div>
+                <p className="font-medium">{b.receiver?.name} — {b.peopleToServe} people</p>
+                <p className="text-sm">{b.donation?.foodName} · <StatusBadge status={b.status} /></p>
+              </div>
+              <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/complete`), "Marked completed")}>Mark completed</button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="glass">
+        <h2 className="text-lg font-semibold">Booking history</h2>
+        <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+          {history.length === 0 && <p className="text-sm text-slate-500">No history yet.</p>}
+          {history.map((b) => (
+            <div key={b.id} className="rounded-xl border p-3 text-sm dark:border-slate-700">
+              <p className="font-medium">{b.donation?.foodName} — {b.receiver?.name}</p>
+              <p>{b.peopleToServe} people · <StatusBadge status={b.status} /></p>
+              <p className="text-xs text-slate-500">{new Date(b.createdAt).toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="glass">
         <h2 className="text-lg font-semibold">Your donation listings</h2>
         <div className="mt-4 space-y-4">
           {donations.length === 0 && (
-            <div className="text-center py-6">
+            <div className="py-6 text-center">
               <p className="text-sm text-slate-500">No food donations yet.</p>
               <Link to="/donate/new" className="btn-primary mt-3 inline-flex items-center gap-2">
                 <PlusCircle size={16} /> Create Food Donation
@@ -116,40 +179,22 @@ export default function DonorDashboard() {
                   <Edit size={14} /> Edit
                 </Link>
                 {!d.isPaused ? (
-                  <button className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/donations/${d.id}/pause`), "Paused")}>
+                  <button type="button" className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/donations/${d.id}/pause`), "Paused")}>
                     <Pause size={14} className="inline" /> Pause
                   </button>
                 ) : (
-                  <button className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/donations/${d.id}/resume`), "Resumed")}>
+                  <button type="button" className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/donations/${d.id}/resume`), "Resumed")}>
                     <Play size={14} className="inline" /> Resume
                   </button>
                 )}
                 {d.status !== "COMPLETED" && (
-                  <button className="btn-primary text-sm" onClick={() => action(() => api.patch(`/donations/${d.id}/complete`), "Completed")}>
+                  <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/donations/${d.id}/complete`), "Completed")}>
                     <CheckCircle size={14} className="inline" /> Complete
                   </button>
                 )}
-                <button className="btn-secondary text-sm text-red-600" onClick={() => action(() => api.delete(`/donations/${d.id}`), "Deleted")}>
+                <button type="button" className="btn-secondary text-sm text-red-600" onClick={() => action(() => api.delete(`/donations/${d.id}`), "Deleted")}>
                   <Trash2 size={14} className="inline" /> Delete
                 </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="glass">
-        <h2 className="text-lg font-semibold">Reservation requests</h2>
-        <div className="mt-3 space-y-2">
-          {requests.filter((r) => r.status === "PENDING").map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
-              <div>
-                <p className="font-medium">{r.receiver?.name} — {r.servingsReserved} servings</p>
-                <p className="text-sm">{r.donation?.foodName}</p>
-              </div>
-              <div className="flex gap-2">
-                <button className="btn-primary text-sm" onClick={() => action(() => api.patch(`/requests/${r.id}/accept`), "Accepted")}>Accept</button>
-                <button className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/requests/${r.id}/reject`), "Rejected")}>Reject</button>
               </div>
             </div>
           ))}

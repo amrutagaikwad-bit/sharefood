@@ -20,6 +20,9 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2">
           <NavLink className="btn-secondary hidden text-sm sm:inline-flex" to="/map">Find Food</NavLink>
+          {user?.role === "RECEIVER" && (
+            <NavLink className="btn-secondary hidden text-sm sm:inline-flex" to="/bookings">My Bookings</NavLink>
+          )}
           {user && (
             <NavLink className="btn-secondary relative hidden text-sm sm:inline-flex" to="/dashboard">
               Dashboard

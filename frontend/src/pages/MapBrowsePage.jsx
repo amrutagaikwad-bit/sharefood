@@ -51,8 +51,8 @@ export default function MapBrowsePage() {
     if (user.role !== "RECEIVER") return notify("Only receivers can reserve food");
     const amount = Number(servingsToReserve[donationId] || 1);
     try {
-      await api.post("/requests", { donationId, servingsReserved: amount });
-      notify(`Reserved ${amount} servings — availability updated live`);
+      await api.post("/bookings", { donationId, peopleToServe: amount });
+      notify(`Booked ${amount} servings — pending donor confirmation`);
     } catch (err) {
       notify(err?.response?.data?.message || "Reservation failed");
     }
