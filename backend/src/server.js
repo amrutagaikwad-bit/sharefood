@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { assertEnv } from "./config/env.js";
+assertEnv();
 import http from "http";
 import express from "express";
 import cors from "cors";

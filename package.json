@@ -8,7 +8,7 @@
     "dev": "concurrently -n backend,frontend -c green,cyan \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
-    "setup": "npm run install:all"
+    "setup": "node scripts/setup.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

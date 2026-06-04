@@ -65,7 +65,7 @@ export default function DonorDashboard() {
           <p className="text-sm text-slate-600">Manage multiple listings — each with its own location</p>
         </div>
         <Link to="/donate/new" className="btn-primary flex items-center gap-2">
-          <PlusCircle size={18} /> New listing
+          <PlusCircle size={18} /> Create Food Donation
         </Link>
       </div>
 
@@ -86,7 +86,14 @@ export default function DonorDashboard() {
       <section className="glass">
         <h2 className="text-lg font-semibold">Your donation listings</h2>
         <div className="mt-4 space-y-4">
-          {donations.length === 0 && <p className="text-sm text-slate-500">No listings yet. Create your first donation.</p>}
+          {donations.length === 0 && (
+            <div className="text-center py-6">
+              <p className="text-sm text-slate-500">No food donations yet.</p>
+              <Link to="/donate/new" className="btn-primary mt-3 inline-flex items-center gap-2">
+                <PlusCircle size={16} /> Create Food Donation
+              </Link>
+            </div>
+          )}
           {donations.map((d) => (
             <div key={d.id} className="fade-in rounded-2xl border border-green-100/80 p-4 dark:border-slate-700">
               <div className="flex flex-wrap gap-4">

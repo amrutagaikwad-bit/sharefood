@@ -31,7 +31,7 @@ export default function Navbar() {
             </NavLink>
           )}
           {user?.role === "DONOR" && (
-            <NavLink className="btn-primary hidden text-sm sm:inline-flex" to="/donate/new">Donate</NavLink>
+            <NavLink className="btn-primary hidden text-sm sm:inline-flex" to="/donate/new">Create Donation</NavLink>
           )}
           {!user && <NavLink className="btn-secondary text-sm" to="/auth">Login</NavLink>}
           {user && (

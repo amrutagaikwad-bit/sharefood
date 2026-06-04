@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
 import DonationCard from "../components/DonationCard";
 import LocationPicker from "../components/LocationPicker";
+import MapView from "../components/MapView";
 import StatusBadge from "../components/StatusBadge";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useDonationFeed } from "../hooks/useDonationFeed";
@@ -11,6 +12,7 @@ import { useSocket } from "../context/SocketContext";
 import { useLocationStore } from "../store/locationStore";
 
 export default function ReceiverDashboard() {
+  const navigate = useNavigate();
   const { location: gps } = useGeolocation();
   const { lat, lng, setCurrentLocation } = useLocationStore();
   const { notify } = useNotifications();
@@ -82,6 +84,17 @@ export default function ReceiverDashboard() {
       </div>
 
       <LocationPicker />
+
+      {searchLat && searchLng && (
+        <section className="glass overflow-hidden p-2">
+          <h2 className="mb-2 px-2 text-lg font-semibold">Nearby on map</h2>
+          <MapView
+            userLocation={[searchLat, searchLng]}
+            donations={donations}
+            onSelect={(d) => navigate(`/donations/${d.id}`)}
+          />
+        </section>
+      )}
 
       {stats && (
         <div className="grid gap-3 sm:grid-cols-3">

@@ -33,7 +33,7 @@ router.post("/", authRequired, roleRequired("RECEIVER"), async (req, res) => {
   });
   if (existing) return res.status(409).json({ message: "Active request already exists" });
 
-  const { donation: updatedDonation } = await adjustServings(donation.id, -amount, "reservation_hold");
+  const { donation: donationAfterHold } = await adjustServings(donation.id, -amount, "reservation_hold");
 
   const request = await prisma.request.create({
     data: {
@@ -52,7 +52,7 @@ router.post("/", authRequired, roleRequired("RECEIVER"), async (req, res) => {
 
   await prisma.donation.update({
     where: { id: donation.id },
-    data: { status: updatedDonation.servingsRemaining <= 0 ? "RESERVED" : "REQUESTED" }
+    data: { status: donationAfterHold.servingsRemaining <= 0 ? "RESERVED" : "REQUESTED" }
   });
 
   await logActivity({
@@ -71,9 +71,9 @@ router.post("/", authRequired, roleRequired("RECEIVER"), async (req, res) => {
     meta: { requestId: request.id }
   });
 
-  const updatedDonation = await getDonationFull(donation.id);
+  const refreshedDonation = await getDonationFull(donation.id);
   emitEvent("request:created", request);
-  emitEvent("donation:updated", updatedDonation);
+  emitEvent("donation:updated", refreshedDonation);
   res.status(201).json(request);
 });
 

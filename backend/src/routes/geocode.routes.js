@@ -1,6 +1,30 @@
 import express from "express";
 
 const router = express.Router();
+const NOMINATIM_HEADERS = { "User-Agent": "FoodBridge/1.0 (food-donation-platform)" };
+
+router.get("/reverse", async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ message: "lat and lng are required" });
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+    const response = await fetch(url, { headers: NOMINATIM_HEADERS });
+    const data = await response.json();
+    const addr = data.address || {};
+    res.json({
+      address: data.display_name || "Unknown location",
+      city: addr.city || addr.town || addr.village || addr.suburb || "",
+      state: addr.state || "",
+      postalCode: addr.postcode || ""
+    });
+  } catch {
+    res.status(500).json({ message: "Reverse geocoding failed" });
+  }
+});
 
 router.get("/search", async (req, res) => {
   const { q } = req.query;
@@ -10,9 +34,7 @@ router.get("/search", async (req, res) => {
 
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(String(q))}&limit=8&addressdetails=1`;
-    const response = await fetch(url, {
-      headers: { "User-Agent": "FoodBridge/1.0 (food-donation-platform)" }
-    });
+    const response = await fetch(url, { headers: NOMINATIM_HEADERS });
     const data = await response.json();
 
     const results = data.map((item) => ({

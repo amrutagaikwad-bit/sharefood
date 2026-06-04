@@ -1,15 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../api/client";
-import DonationForm, { fillLocationFromGps } from "../components/DonationForm";
+import DonationForm, { buildDonationPayload, fillLocationFromGps } from "../components/DonationForm";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useNotifications } from "../context/NotificationContext";
+import { geocodeAddressLine } from "../utils/location";
 
 function toLocalInput(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
+}
+
+function toDateAndTime(iso) {
+  if (!iso) return { date: "", time: "" };
+  const d = new Date(iso);
+  return {
+    date: d.toISOString().slice(0, 10),
+    time: d.toTimeString().slice(0, 5)
+  };
 }
 
 export default function EditDonationPage() {
@@ -23,6 +33,8 @@ export default function EditDonationPage() {
   useEffect(() => {
     api.get(`/donations/${id}`).then((res) => {
       const d = res.data;
+      const start = toDateAndTime(d.pickupStart);
+      const end = toDateAndTime(d.pickupEnd);
       setForm({
         foodName: d.foodName,
         category: d.category,
@@ -39,10 +51,10 @@ export default function EditDonationPage() {
         postalCode: d.postalCode || "",
         specialInstructions: d.specialInstructions || "",
         contactPhone: d.contactPhone || "",
-        preparationAt: toLocalInput(d.preparationAt),
-        expiryTime: toLocalInput(d.expiryTime),
-        pickupStart: toLocalInput(d.pickupStart),
-        pickupEnd: toLocalInput(d.pickupEnd)
+        distributionDate: start.date || toDateAndTime(d.expiryTime).date,
+        pickupStartTime: start.time || "10:00",
+        pickupEndTime: end.time || "18:00",
+        expiryTime: toLocalInput(d.expiryTime)
       });
     });
   }, [id]);
@@ -50,13 +62,25 @@ export default function EditDonationPage() {
   const detectLocation = async () => {
     if (!location) return notify("Enable GPS first");
     setLoadingAddress(true);
-    await fillLocationFromGps(location, setForm);
-    setLoadingAddress(false);
+    try {
+      await fillLocationFromGps(location, setForm);
+    } finally {
+      setLoadingAddress(false);
+    }
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    await api.put(`/donations/${id}`, form);
+    let lat = form.latitude;
+    let lng = form.longitude;
+    if (!lat || !lng) {
+      const hit = await geocodeAddressLine(form.address, form.city, form.state, form.postalCode);
+      if (!hit) return notify("Location coordinates required");
+      lat = hit.lat;
+      lng = hit.lng;
+    }
+    const payload = buildDonationPayload({ ...form, latitude: lat, longitude: lng });
+    await api.put(`/donations/${id}`, payload);
     notify("Listing updated — synced everywhere in real time");
     navigate("/dashboard");
   };
@@ -67,7 +91,7 @@ export default function EditDonationPage() {
     <div className="mx-auto max-w-3xl p-4">
       <form onSubmit={submit} className="glass p-6">
         <h1 className="mb-4 text-2xl font-bold">Edit donation listing</h1>
-        <DonationForm form={form} setForm={setForm} onDetectLocation={detectLocation} loadingAddress={loadingAddress} submitLabel="Update" />
+        <DonationForm form={form} setForm={setForm} onDetectLocation={detectLocation} loadingAddress={loadingAddress} />
         <button type="submit" className="btn-primary mt-4 w-full">Save changes</button>
       </form>
     </div>

@@ -33,10 +33,19 @@ function ClusterLayer({ donations, onSelect }) {
     donations.forEach((d) => {
       const icon = d.status === "COMPLETED" ? completedIcon : donorIcon;
       const marker = L.marker([d.latitude, d.longitude], { icon });
+      const start = d.pickupStart ? new Date(d.pickupStart).toLocaleString() : "";
+      const end = d.pickupEnd ? new Date(d.pickupEnd).toLocaleString() : "";
+      const dist = d.distanceKm !== undefined ? `${d.distanceKm.toFixed(2)} km away` : "";
       marker.bindPopup(
-        `<strong>${d.foodName}</strong><br/>${d.quantity}<br/>${d.address}${
-          d.distanceKm !== undefined ? `<br/>${d.distanceKm.toFixed(2)} km` : ""
-        }`
+        `<div style="min-width:200px">
+          <strong>${d.foodName}</strong> (${d.category || ""})<br/>
+          ${d.description ? `${d.description}<br/>` : ""}
+          <b>${d.servingsRemaining ?? d.servesCount}</b> / ${d.servesCount} servings • ${d.quantity}<br/>
+          ${start && end ? `Pickup: ${start} – ${end}<br/>` : ""}
+          ${d.address}<br/>
+          ${dist}
+          <br/><a href="/donations/${d.id}">View full details</a>
+        </div>`
       );
       marker.on("click", () => onSelect?.(d));
       cluster.addLayer(marker);

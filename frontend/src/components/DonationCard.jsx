@@ -26,7 +26,12 @@ export default function DonationCard({ donation, onRequest, canRequest }) {
             / {donation.servesCount || 1} servings left
           </p>
           <p className="col-span-2 flex items-center gap-1"><MapPin size={14} /> {donation.address}</p>
-          <p className="flex items-center gap-1"><Clock3 size={14} /> {new Date(donation.createdAt).toLocaleString()}</p>
+          <p className="flex items-center gap-1 col-span-2">
+            <Clock3 size={14} />
+            {donation.pickupStart
+              ? `${new Date(donation.pickupStart).toLocaleString()} – ${donation.pickupEnd ? new Date(donation.pickupEnd).toLocaleTimeString() : ""}`
+              : new Date(donation.createdAt).toLocaleString()}
+          </p>
           {donation.distanceKm !== undefined && (
             <p className="font-medium text-primary">
               {donation.distanceKm.toFixed(2)} km

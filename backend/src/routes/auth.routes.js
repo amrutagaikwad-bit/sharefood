@@ -10,9 +10,13 @@ const router = express.Router();
 
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, password, role, phone } = req.body;
+    const email = String(req.body.email || "").trim().toLowerCase();
     if (!name || !email || !password || !role) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
     if (!["DONOR", "RECEIVER"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
@@ -39,14 +43,19 @@ router.post("/register", async (req, res) => {
       token,
       user: sanitizeUser(user)
     });
-  } catch {
+  } catch (err) {
+    console.error("Register error:", err);
     return res.status(500).json({ message: "Failed to register" });
   }
 });
 
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const { password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
     if (user.isBlocked) return res.status(403).json({ message: "Account suspended" });
@@ -58,7 +67,8 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
     return res.json({ token, user: sanitizeUser(user) });
-  } catch {
+  } catch (err) {
+    console.error("Login error:", err);
     return res.status(500).json({ message: "Failed to login" });
   }
 });
