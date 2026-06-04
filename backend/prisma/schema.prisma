@@ -19,6 +19,7 @@ model User {
   lastLoginAt    DateTime?
   donations      Donation[]       @relation("DonorDonations")
   loginHistory   LoginHistory[]
+  sessions       UserSession[]
   pickupRequests Request[]        @relation("ReceiverRequests")
   notifications  Notification[]
   activityLogs   ActivityLog[]
@@ -72,14 +73,9 @@ model Request {
   donation         Donation      @relation(fields: [donationId], references: [id])
   receiver         User          @relation("ReceiverRequests", fields: [receiverId], references: [id])
   status           RequestStatus @default(PENDING)
-<<<<<<< HEAD
-  servingsReserved Int           @default(1) // number of people / servings to be served
-  bookingDateTime  DateTime?     // preferred pickup / booking time
-=======
   peopleToServe    Int           @default(1)
   servingsReserved Int           @default(1)
   bookingDateTime  DateTime      @default(now())
->>>>>>> ffc4eea (kkr)
   pickupSlot       DateTime?
   message          String?
   createdAt        DateTime      @default(now())
@@ -159,6 +155,7 @@ enum Role {
   DONOR
   RECEIVER
   ADMIN
+  SUPER_ADMIN
 }
 
 enum DonationStatus {
@@ -226,4 +223,20 @@ model SecurityLog {
   message   String
   metadata  String?
   createdAt DateTime @default(now())
+}
+
+// Live session / page tracking for admin monitoring
+model UserSession {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socketId   String?
+  currentPage String  @default("/")
+  ip         String?
+  userAgent  String?
+  browser    String?
+  device     String?
+  startedAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  endedAt    DateTime?
 }

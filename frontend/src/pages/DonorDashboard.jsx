@@ -33,8 +33,6 @@ export default function DonorDashboard() {
     socket.on("booking:updated", refresh);
     socket.on("request:created", refresh);
     socket.on("request:updated", refresh);
-    socket.on("booking:created", refresh);
-    socket.on("booking:updated", refresh);
     socket.on("donation:created", refresh);
     socket.on("donation:updated", refresh);
     socket.on("donation:servings", refresh);
@@ -43,8 +41,6 @@ export default function DonorDashboard() {
       socket.off("booking:updated", refresh);
       socket.off("request:created", refresh);
       socket.off("request:updated", refresh);
-      socket.off("booking:created", refresh);
-      socket.off("booking:updated", refresh);
       socket.off("donation:created", refresh);
       socket.off("donation:updated", refresh);
       socket.off("donation:servings", refresh);
@@ -63,14 +59,11 @@ export default function DonorDashboard() {
 
   if (!data) return <div className="p-4"><div className="skeleton mx-auto h-40 max-w-6xl" /></div>;
 
-<<<<<<< HEAD
-  const stats = data.bookings || {};
-  const pending = bookings.filter((b) => b.status === "Pending");
-  const confirmed = bookings.filter((b) => b.status === "Confirmed");
-  const history = bookings.filter((b) => ["Completed", "Cancelled"].includes(b.status));
-=======
-  const bs = data.bookingStats || {};
->>>>>>> ffc4eea (kkr)
+  const bs = data.bookingStats || data.bookings || {};
+  const statusOf = (b) => b.internalStatus || b.status;
+  const pending = bookings.filter((b) => statusOf(b) === "PENDING");
+  const confirmed = bookings.filter((b) => ["CONFIRMED", "ACCEPTED", "RESERVED"].includes(statusOf(b)));
+  const history = bookings.filter((b) => ["COMPLETED", "CANCELLED", "REJECTED"].includes(statusOf(b)));
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
@@ -79,11 +72,7 @@ export default function DonorDashboard() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Donor Command Center
           </h1>
-<<<<<<< HEAD
-          <p className="text-sm text-slate-600">Manage donations and food bookings in real time</p>
-=======
-          <p className="text-sm text-slate-600">Bookings, servings, and listings in one place</p>
->>>>>>> ffc4eea (kkr)
+          <p className="text-sm text-slate-600">Manage donations and bookings in real time</p>
         </div>
         <Link to="/donate/new" className="btn-primary flex items-center gap-2">
           <PlusCircle size={18} /> Create Food Donation
@@ -92,25 +81,14 @@ export default function DonorDashboard() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-<<<<<<< HEAD
-          { label: "Total listings", value: data.total },
-          { label: "Active listings", value: data.active },
-          { label: "Total bookings", value: stats.totalBookings ?? 0 },
-          { label: "Pending bookings", value: stats.pendingBookings ?? pending.length },
-          { label: "Confirmed", value: stats.confirmedBookings ?? confirmed.length },
-          { label: "People served", value: stats.peopleServed ?? 0 },
-          { label: "Remaining servings", value: stats.remainingServings ?? "—" },
-          { label: "Completed bookings", value: stats.completedBookings ?? 0 }
-=======
           { label: "Total donations", value: data.total },
           { label: "Active listings", value: data.active },
           { label: "Total bookings", value: bs.totalBookings ?? 0 },
-          { label: "Pending bookings", value: bs.pendingBookings ?? data.pendingRequests },
-          { label: "Confirmed", value: bs.confirmedBookings ?? 0 },
+          { label: "Pending bookings", value: bs.pendingBookings ?? pending.length },
+          { label: "Confirmed", value: bs.confirmedBookings ?? confirmed.length },
           { label: "Completed bookings", value: bs.completedBookings ?? 0 },
           { label: "People served", value: bs.peopleServed ?? 0 },
           { label: "Servings remaining", value: bs.remainingServings ?? 0 }
->>>>>>> ffc4eea (kkr)
         ].map((s) => (
           <div key={s.label} className="glass text-center">
             <p className="text-2xl font-bold text-primary">{s.value}</p>
@@ -120,19 +98,21 @@ export default function DonorDashboard() {
       </div>
 
       <section className="glass">
-        <h2 className="text-lg font-semibold">Pending bookings — confirm or decline</h2>
+        <h2 className="text-lg font-semibold">Pending bookings</h2>
         <div className="mt-3 space-y-2">
           {pending.length === 0 && <p className="text-sm text-slate-500">No pending bookings.</p>}
           {pending.map((b) => (
             <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
               <div>
-                <p className="font-medium">{b.receiver?.name} — {b.peopleToServe} people</p>
+                <p className="font-medium">{b.receiver?.name} — {b.peopleToServe ?? b.servingsReserved} people</p>
                 <p className="text-sm">{b.donation?.foodName}</p>
-                <p className="text-xs text-slate-500">{new Date(b.bookingDateTime).toLocaleString()}</p>
+                <p className="text-xs text-slate-500">
+                  {b.bookingDateTime ? new Date(b.bookingDateTime).toLocaleString() : ""}
+                </p>
               </div>
               <div className="flex gap-2">
-                <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/confirm`), "Booking confirmed")}>Accept</button>
-                <button type="button" className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/reject`), "Booking declined")}>Reject</button>
+                <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/confirm`), "Booking confirmed")}>Confirm</button>
+                <button type="button" className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/reject`), "Booking rejected")}>Reject</button>
               </div>
             </div>
           ))}
@@ -146,10 +126,10 @@ export default function DonorDashboard() {
           {confirmed.map((b) => (
             <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
               <div>
-                <p className="font-medium">{b.receiver?.name} — {b.peopleToServe} people</p>
-                <p className="text-sm">{b.donation?.foodName} · <StatusBadge status={b.status} /></p>
+                <p className="font-medium">{b.receiver?.name} — {b.donation?.foodName}</p>
+                <StatusBadge status={statusOf(b)} />
               </div>
-              <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/complete`), "Marked completed")}>Mark completed</button>
+              <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${b.id}/complete`), "Marked complete")}>Complete</button>
             </div>
           ))}
         </div>
@@ -158,12 +138,10 @@ export default function DonorDashboard() {
       <section className="glass">
         <h2 className="text-lg font-semibold">Booking history</h2>
         <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
-          {history.length === 0 && <p className="text-sm text-slate-500">No history yet.</p>}
           {history.map((b) => (
             <div key={b.id} className="rounded-xl border p-3 text-sm dark:border-slate-700">
               <p className="font-medium">{b.donation?.foodName} — {b.receiver?.name}</p>
-              <p>{b.peopleToServe} people · <StatusBadge status={b.status} /></p>
-              <p className="text-xs text-slate-500">{new Date(b.createdAt).toLocaleString()}</p>
+              <StatusBadge status={statusOf(b)} />
             </div>
           ))}
         </div>
@@ -223,60 +201,6 @@ export default function DonorDashboard() {
           ))}
         </div>
       </section>
-<<<<<<< HEAD
-=======
-
-      <section className="glass">
-        <h2 className="text-lg font-semibold">Pending bookings</h2>
-        <div className="mt-3 space-y-2">
-          {requests.filter((r) => r.status === "PENDING").length === 0 && (
-            <p className="text-sm text-slate-500">No pending bookings.</p>
-          )}
-          {requests.filter((r) => r.status === "PENDING").map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
-              <div>
-                <p className="font-medium">{r.receiver?.name} — {r.peopleToServe ?? r.servingsReserved} people</p>
-                <p className="text-sm">{r.donation?.foodName}</p>
-                <p className="text-xs text-slate-500">
-                  Pickup: {new Date(r.bookingDateTime || r.pickupSlot).toLocaleString()}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${r.id}/confirm`), "Booking confirmed")}>
-                  Confirm
-                </button>
-                <button type="button" className="btn-secondary text-sm" onClick={() => action(() => api.patch(`/bookings/${r.id}/reject`), "Booking rejected")}>
-                  Reject
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="glass">
-        <h2 className="text-lg font-semibold">Booking history</h2>
-        <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
-          {requests.length === 0 && <p className="text-sm text-slate-500">No bookings yet.</p>}
-          {requests.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
-              <div>
-                <p className="font-medium">{r.receiver?.name} — {r.donation?.foodName}</p>
-                <p className="text-sm">{r.peopleToServe ?? r.servingsReserved} servings • {new Date(r.createdAt).toLocaleString()}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={r.status} />
-                {["CONFIRMED", "ACCEPTED", "RESERVED"].includes(r.status) && (
-                  <button type="button" className="btn-primary text-sm" onClick={() => action(() => api.patch(`/bookings/${r.id}/complete`), "Marked complete")}>
-                    Complete
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
->>>>>>> ffc4eea (kkr)
     </div>
   );
 }

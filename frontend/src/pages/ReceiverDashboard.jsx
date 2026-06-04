@@ -50,21 +50,17 @@ export default function ReceiverDashboard() {
     socket.on("donation:created", refresh);
     socket.on("donation:updated", refresh);
     socket.on("donation:servings", refresh);
-<<<<<<< HEAD
     socket.on("booking:created", refresh);
-=======
+    socket.on("request:created", refresh);
     socket.on("request:updated", refresh);
->>>>>>> ffc4eea (kkr)
     socket.on("booking:updated", refresh);
     return () => {
       socket.off("donation:created", refresh);
       socket.off("donation:updated", refresh);
       socket.off("donation:servings", refresh);
-<<<<<<< HEAD
       socket.off("booking:created", refresh);
-=======
+      socket.off("request:created", refresh);
       socket.off("request:updated", refresh);
->>>>>>> ffc4eea (kkr)
       socket.off("booking:updated", refresh);
     };
   }, [socket]);
@@ -84,6 +80,8 @@ export default function ReceiverDashboard() {
       notify(err?.response?.data?.message || "Failed");
     }
   };
+
+  const activeStatuses = ["PENDING", "CONFIRMED", "ACCEPTED", "RESERVED", "Pending", "Confirmed"];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4">
@@ -130,7 +128,7 @@ export default function ReceiverDashboard() {
             {donations.map((d) => (
               <div key={d.id}>
                 <DonationCard donation={d} canRequest={false} />
-                <button className="btn-primary mt-2 w-full text-sm" onClick={() => requestPickup(d.id, 1)}>Reserve 1 serving</button>
+                <button type="button" className="btn-primary mt-2 w-full text-sm" onClick={() => requestPickup(d.id, 1)}>Reserve 1 serving</button>
               </div>
             ))}
           </div>
@@ -144,12 +142,14 @@ export default function ReceiverDashboard() {
             <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 dark:border-slate-700">
               <div>
                 <p className="font-medium">{r.donation?.foodName} — {r.peopleToServe ?? r.servingsReserved} people</p>
-                <StatusBadge status={r.status} />
-                <p className="text-xs text-slate-500">{r.bookingDateTime ? new Date(r.bookingDateTime).toLocaleString() : ""}</p>
+                <StatusBadge status={r.internalStatus || r.status} />
+                <p className="text-xs text-slate-500">
+                  {r.bookingDateTime ? new Date(r.bookingDateTime).toLocaleString() : ""}
+                </p>
               </div>
-              {["Pending", "Confirmed", "PENDING", "CONFIRMED", "ACCEPTED", "RESERVED"].includes(r.status) && (
+              {activeStatuses.includes(r.status) || activeStatuses.includes(r.internalStatus) ? (
                 <button type="button" className="btn-secondary text-sm" onClick={() => cancelRequest(r.id)}>Cancel</button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

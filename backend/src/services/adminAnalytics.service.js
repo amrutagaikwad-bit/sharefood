@@ -48,9 +48,9 @@ export async function getOverviewStats() {
     blockedUsers,
     bannedUsers
   ] = await Promise.all([
-    prisma.user.count({ where: { role: { not: "ADMIN" } } }),
-    prisma.user.count({ where: { isBlocked: false, isBanned: false, role: { not: "ADMIN" } } }),
-    prisma.user.count({ where: { createdAt: { gte: today }, role: { not: "ADMIN" } } }),
+    prisma.user.count({ where: { role: { notIn: ["ADMIN", "SUPER_ADMIN"] } } }),
+    prisma.user.count({ where: { isBlocked: false, isBanned: false, role: { notIn: ["ADMIN", "SUPER_ADMIN"] } } }),
+    prisma.user.count({ where: { createdAt: { gte: today }, role: { notIn: ["ADMIN", "SUPER_ADMIN"] } } }),
     prisma.user.count({ where: { role: "DONOR" } }),
     prisma.donation.count({ where: { status: { not: "DELETED" } } }),
     prisma.donation.count({

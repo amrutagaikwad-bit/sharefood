@@ -56,7 +56,7 @@ Press **Ctrl+C** to stop both servers.
 | Donation details / book | http://localhost:5173/donations/:id |
 | Donor dashboard | http://localhost:5173/dashboard (as donor) |
 | Receiver dashboard | http://localhost:5173/dashboard (as receiver) |
-| Admin panel | http://localhost:5173/dashboard (as admin) |
+| **Enterprise Admin** | http://localhost:5173/admin |
 | Create donation | http://localhost:5173/donate/new |
 | API health | http://localhost:5000/api/health/public |
 
@@ -67,6 +67,7 @@ Press **Ctrl+C** to stop both servers.
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | admin@foodbridge.com | password123 |
+| Super Admin | superadmin@foodbridge.com | password123 |
 | Donor | donor@foodbridge.com | password123 |
 | Receiver | receiver@foodbridge.com | password123 |
 

@@ -10,7 +10,6 @@ router.get("/", authRequired, async (req, res) => {
   const { lat, lng } = req.query;
 
   if (req.user.role === "DONOR") {
-<<<<<<< HEAD
     const [total, active, completed, expired, recent, pendingRequests, bookingStats] = await Promise.all([
       prisma.donation.count({ where: { donorId: req.user.id, status: { not: "DELETED" } } }),
       prisma.donation.count({
@@ -22,45 +21,18 @@ router.get("/", authRequired, async (req, res) => {
         where: { donorId: req.user.id, status: { not: "DELETED" } },
         orderBy: { createdAt: "desc" },
         take: 6,
-        include: { requests: { include: { receiver: { select: { name: true, phone: true } } } } }
+        include: {
+          requests: {
+            include: { receiver: { select: { name: true, phone: true } } }
+          }
+        }
       }),
       prisma.request.count({
         where: { donation: { donorId: req.user.id }, status: "PENDING" }
       }),
       getDonorBookingStats(req.user.id)
     ]);
-=======
-    const donorDonationFilter = { donation: { donorId: req.user.id } };
-    const [total, active, completed, expired, recent, pendingRequests, totalBookings, confirmedBookings, completedBookings, peopleServedAgg] =
-      await Promise.all([
-        prisma.donation.count({ where: { donorId: req.user.id, status: { not: "DELETED" } } }),
-        prisma.donation.count({
-          where: { donorId: req.user.id, status: { in: ["ACTIVE", "REQUESTED", "RESERVED", "PICKED_UP"] } }
-        }),
-        prisma.donation.count({ where: { donorId: req.user.id, status: "COMPLETED" } }),
-        prisma.donation.count({ where: { donorId: req.user.id, status: "EXPIRED" } }),
-        prisma.donation.findMany({
-          where: { donorId: req.user.id, status: { not: "DELETED" } },
-          orderBy: { createdAt: "desc" },
-          take: 6,
-          include: { requests: { include: { receiver: { select: { name: true, phone: true } } } } }
-        }),
-        prisma.request.count({ where: { ...donorDonationFilter, status: "PENDING" } }),
-        prisma.request.count({ where: donorDonationFilter }),
-        prisma.request.count({ where: { ...donorDonationFilter, status: { in: ["CONFIRMED", "ACCEPTED", "RESERVED"] } } }),
-        prisma.request.count({ where: { ...donorDonationFilter, status: "COMPLETED" } }),
-        prisma.request.aggregate({
-          where: { ...donorDonationFilter, status: "COMPLETED" },
-          _sum: { peopleToServe: true }
-        })
-      ]);
 
-    const remainingServings = await prisma.donation.aggregate({
-      where: { donorId: req.user.id, status: { in: ["ACTIVE", "REQUESTED", "RESERVED"] } },
-      _sum: { servingsRemaining: true }
-    });
-
->>>>>>> ffc4eea (kkr)
     return res.json({
       role: "DONOR",
       total,
@@ -69,18 +41,8 @@ router.get("/", authRequired, async (req, res) => {
       expired,
       pendingRequests,
       recent,
-<<<<<<< HEAD
+      bookingStats,
       bookings: bookingStats
-=======
-      bookingStats: {
-        totalBookings,
-        pendingBookings: pendingRequests,
-        confirmedBookings,
-        completedBookings,
-        peopleServed: peopleServedAgg._sum.peopleToServe || 0,
-        remainingServings: remainingServings._sum.servingsRemaining || 0
-      }
->>>>>>> ffc4eea (kkr)
     });
   }
 
@@ -102,13 +64,12 @@ router.get("/", authRequired, async (req, res) => {
       nearby = nearby.slice(0, 12);
     }
 
-    const [requestedPickups, pickupHistory, savedCount, myBookings] = await Promise.all([
+    const [requestedPickups, pickupHistory, savedCount] = await Promise.all([
       prisma.request.count({
         where: { receiverId: req.user.id, status: { in: ["PENDING", "CONFIRMED", "ACCEPTED", "RESERVED"] } }
       }),
       prisma.request.count({ where: { receiverId: req.user.id, status: "COMPLETED" } }),
-      prisma.savedDonation.count({ where: { userId: req.user.id } }),
-      prisma.request.count({ where: { receiverId: req.user.id } })
+      prisma.savedDonation.count({ where: { userId: req.user.id } })
     ]);
 
     return res.json({
@@ -116,7 +77,6 @@ router.get("/", authRequired, async (req, res) => {
       requestedPickups,
       pickupHistory,
       savedCount,
-      totalBookings: myBookings,
       nearbyDonations: nearby
     });
   }

@@ -35,9 +35,10 @@ export function authOptional(req, res, next) {
 
 export function roleRequired(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    if (!req.user) return res.status(403).json({ message: "Forbidden" });
+    const r = req.user.role;
+    const ok = roles.includes(r) || (r === "SUPER_ADMIN" && roles.includes("ADMIN"));
+    if (!ok) return res.status(403).json({ message: "Forbidden" });
     next();
   };
 }

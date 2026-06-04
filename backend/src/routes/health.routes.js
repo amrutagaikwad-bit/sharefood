@@ -2,12 +2,14 @@ import express from "express";
 import os from "os";
 import { prisma } from "../config/prisma.js";
 import { getSocketStats } from "../socket.js";
-import { authRequired, roleRequired } from "../middleware/auth.js";
+import { authRequired } from "../middleware/auth.js";
+import { adminRequired } from "../middleware/adminAuth.js";
+import { getMetricsSummary } from "../services/metrics.service.js";
 
 const router = express.Router();
 const startedAt = Date.now();
 
-router.get("/", authRequired, roleRequired("ADMIN"), async (req, res) => {
+router.get("/", authRequired, adminRequired, async (req, res) => {
   let dbStatus = "healthy";
   let dbLatency = 0;
   try {
@@ -34,6 +36,8 @@ router.get("/", authRequired, roleRequired("ADMIN"), async (req, res) => {
     memory: usedPct > 90 ? "critical" : usedPct > 75 ? "warning" : "healthy"
   };
 
+  const apiMetrics = getMetricsSummary();
+
   res.json({
     uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
     serverStatus: indicators.server,
@@ -52,7 +56,8 @@ router.get("/", authRequired, roleRequired("ADMIN"), async (req, res) => {
       heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
       systemUsedPct: Math.round(usedPct)
     },
-    indicators
+    indicators,
+    apiMetrics
   });
 });
 

@@ -14,6 +14,7 @@ import notificationRoutes from "./routes/notifications.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import geocodeRoutes from "./routes/geocode.routes.js";
 import healthRoutes from "./routes/health.routes.js";
+import { metricsMiddleware } from "./middleware/metrics.middleware.js";
 import { initSocket, incrementRequestCount } from "./socket.js";
 import { startExpiryJob } from "./services/expiry.service.js";
 import { logSystemError } from "./services/activity.service.js";
@@ -27,6 +28,7 @@ startExpiryJob();
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
 app.use(morgan("dev"));
+app.use(metricsMiddleware);
 app.use((req, res, next) => {
   incrementRequestCount();
   next();

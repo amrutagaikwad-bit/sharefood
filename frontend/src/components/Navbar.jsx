@@ -24,8 +24,8 @@ export default function Navbar() {
             <NavLink className="btn-secondary hidden text-sm sm:inline-flex" to="/bookings">My Bookings</NavLink>
           )}
           {user && (
-            <NavLink className="btn-secondary relative hidden text-sm sm:inline-flex" to="/dashboard">
-              Dashboard
+            <NavLink className="btn-secondary relative hidden text-sm sm:inline-flex" to={["ADMIN", "SUPER_ADMIN"].includes(user.role) ? "/admin" : "/dashboard"}>
+              {["ADMIN", "SUPER_ADMIN"].includes(user.role) ? "Admin Panel" : "Dashboard"}
               {unreadCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-white">
                   {unreadCount}

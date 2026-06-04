@@ -11,7 +11,9 @@ import {
   Shield,
   Users,
   Utensils,
-  CalendarCheck
+  CalendarCheck,
+  Radio,
+  FileText
 } from "lucide-react";
 import {
   Bar,
@@ -32,6 +34,7 @@ import { useTheme } from "../context/ThemeContext";
 
 const NAV = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "live", label: "Live users", icon: Radio },
   { id: "users", label: "Users", icon: Users },
   { id: "donations", label: "Donations", icon: Utensils },
   { id: "bookings", label: "Bookings", icon: CalendarCheck },
@@ -83,6 +86,9 @@ export default function AdminHostPanel() {
   const [logSearch, setLogSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [settingDraft, setSettingDraft] = useState({});
+  const [liveUsers, setLiveUsers] = useState({ live: [], sessions: [] });
+  const [performance, setPerformance] = useState(null);
+  const [restoreFile, setRestoreFile] = useState("");
 
   const loadCore = async () => {
     const [d, h] = await Promise.all([api.get("/admin/dashboard"), api.get("/health")]);
@@ -129,13 +135,19 @@ export default function AdminHostPanel() {
     }
     if (tab === "activity") api.get("/admin/logs", { params: { q: logSearch } }).then((r) => setLogs(r.data));
     if (tab === "analytics") api.get("/admin/analytics/full").then((r) => setAnalytics(r.data));
+    if (tab === "live") api.get("/admin/live/users").then((r) => setLiveUsers(r.data));
+    if (tab === "performance") {
+      Promise.all([api.get("/health"), api.get("/admin/performance")]).then(([h, p]) => {
+        setHealth(h.data);
+        setPerformance(p.data);
+      });
+    }
     if (tab === "security") api.get("/admin/security").then((r) => setSecurity(r.data));
     if (tab === "database") api.get("/admin/database/stats").then((r) => setDbStats(r.data));
     if (tab === "settings") api.get("/admin/settings").then((r) => setSettings(r.data));
     if (tab === "notifications") api.get("/admin/notifications").then((r) => setNotifications(r.data));
   }, [tab, userSearch, userRole, userStatus, bookingStatus, logSearch]);
 
-  const overview = dash?.overview || dash;
   const chartTopDonors = useMemo(
     () => (dash?.analytics?.topDonors || []).map((d) => ({ name: d.name, count: d.count })),
     [dash]
@@ -172,6 +184,20 @@ export default function AdminHostPanel() {
     api.put(`/admin/settings/${key}`, { value }).then(() => api.get("/admin/settings").then((r) => setSettings(r.data)));
   };
 
+  const changeRole = (id, role) => api.patch(`/admin/users/${id}/role`, { role }).then(load);
+
+  const exportData = async (type, format = "csv") => {
+    const res = await api.get(`/admin/export/${type}`, { params: { format }, responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([res.data]));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${type}.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const ov = dash?.overview || dash;
+
   if (!dash) {
     return (
       <div className="min-h-screen bg-slate-100 p-6 dark:bg-slate-950">
@@ -185,8 +211,8 @@ export default function AdminHostPanel() {
       <div className="mx-auto flex max-w-[1600px] gap-0 lg:gap-4 p-2 lg:p-4">
         <aside className="hidden w-56 shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow lg:flex dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-3 px-2">
-            <h1 className="text-lg font-bold text-primary">Host Panel</h1>
-            <p className="text-xs text-slate-500">Super Admin</p>
+            <h1 className="text-lg font-bold text-primary">Enterprise Control</h1>
+            <p className="text-xs text-slate-500">Admin / Super Admin</p>
           </div>
           {NAV.map(({ id, label, icon: Icon }) => (
             <button
@@ -231,18 +257,18 @@ export default function AdminHostPanel() {
           {tab === "overview" && (
             <>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Total users" value={overview?.totalUsers ?? dash.users?.totalUsers} />
-                <StatCard label="Active users" value={overview?.activeUsers ?? dash.users?.activeUsers} />
-                <StatCard label="New today" value={overview?.newUsersToday ?? dash.users?.newUsersToday} />
-                <StatCard label="Online now" value={dash.users?.onlineUsers} />
-                <StatCard label="Total donations" value={overview?.totalDonations ?? dash.donations?.totalDonations} />
-                <StatCard label="Active donations" value={overview?.activeDonations ?? dash.donations?.activeDonations} />
-                <StatCard label="Pending donations" value={overview?.pendingDonations ?? dash.donations?.pendingDonations} />
-                <StatCard label="Completed donations" value={overview?.completedDonations ?? dash.donations?.completedDonations} />
-                <StatCard label="Total bookings" value={overview?.totalBookings ?? dash.bookings?.totalBookings} />
-                <StatCard label="Pending bookings" value={overview?.pendingBookings ?? dash.bookings?.pendingRequests} />
-                <StatCard label="Food distributed (servings)" value={overview?.foodDistributed ?? dash.analytics?.mealsDistributed} />
-                <StatCard label="Total donors" value={overview?.totalDonors ?? dash.users?.totalDonors} />
+                <StatCard label="Total users" value={ov.totalUsers ?? dash.users?.totalUsers} />
+                <StatCard label="Active users" value={ov.activeUsers ?? dash.users?.activeUsers} />
+                <StatCard label="Online now" value={ov.onlineUsers ?? dash.users?.onlineUsers} />
+                <StatCard label="New users today" value={ov.newUsersToday ?? dash.users?.newUsersToday} />
+                <StatCard label="Total donations" value={ov.totalDonations ?? dash.donations?.totalDonations} />
+                <StatCard label="Total bookings" value={ov.totalBookings ?? dash.bookings?.totalBookings} />
+                <StatCard label="Food distributed" value={ov.foodDistributed ?? dash.analytics?.mealsDistributed} />
+                <StatCard label="Total requests" value={ov.totalRequests} />
+                <StatCard label="Notifications" value={ov.totalNotifications} />
+                <StatCard label="Daily activity" value={ov.dailyActivityCount} />
+                <StatCard label="Total revenue" value={`$${ov.totalRevenue ?? 0}`} sub="Future-ready" />
+                <StatCard label="Pending bookings" value={ov.pendingBookings ?? dash.bookings?.pendingBookings} />
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
@@ -269,6 +295,22 @@ export default function AdminHostPanel() {
                 </div>
               </div>
             </>
+          )}
+
+          {tab === "live" && (
+            <div className="rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
+              <h3 className="font-semibold">Real-time online ({liveUsers.live?.length ?? 0})</h3>
+              {liveUsers.live?.map((u) => (
+                <div key={u.userId} className="flex flex-wrap justify-between gap-2 rounded-xl border p-3 text-sm dark:border-slate-700">
+                  <div>
+                    <p className="font-medium">{u.name} · {u.role}</p>
+                    <p className="text-primary">Page: {u.currentPage}</p>
+                    <p className="text-xs text-slate-500">{u.browser} · {u.device} · {u.ip || "—"}</p>
+                  </div>
+                  <p className="text-xs">Session {u.sessionDurationSec}s</p>
+                </div>
+              ))}
+            </div>
           )}
 
           {tab === "users" && (
@@ -304,6 +346,10 @@ export default function AdminHostPanel() {
                     )}
                     <button type="button" className="btn-secondary text-xs" onClick={() => banUser(u.id)}>Ban</button>
                     <button type="button" className="btn-secondary text-xs" onClick={() => resetPassword(u.id)}>Reset pwd</button>
+                    <select className="input-field text-xs w-28" defaultValue={u.role} onChange={(e) => changeRole(u.id, e.target.value)}>
+                      <option value="DONOR">Donor</option>
+                      <option value="RECEIVER">Receiver</option>
+                    </select>
                     <button type="button" className="btn-secondary text-xs text-red-600" onClick={() => deleteUser(u.id)}>Delete</button>
                   </div>
                 </div>
@@ -434,17 +480,33 @@ export default function AdminHostPanel() {
           )}
 
           {tab === "performance" && health && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {Object.entries(health.indicators || {}).map(([key, status]) => (
-                <div key={key} className="flex items-center justify-between rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                  <span className="capitalize">{key}</span>
-                  <HealthDot status={status} />
-                </div>
-              ))}
-              <p className="sm:col-span-2 text-sm rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                Uptime: {health.uptimeSeconds}s · DB latency: {health.dbLatencyMs}ms · Requests: {health.totalRequests} ·
-                Errors: {health.errorCount} · Heap: {health.memory?.heapUsedMb}MB
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Object.entries(health.indicators || {}).map(([key, status]) => (
+                  <div key={key} className="flex items-center justify-between rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <span className="capitalize">{key}</span>
+                    <HealthDot status={status} />
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm rounded-2xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                Uptime: {health.uptimeSeconds}s · DB: {health.dbLatencyMs}ms · API avg: {performance?.metrics?.avgResponseMs ?? health.apiMetrics?.avgResponseMs}ms ·
+                Error rate: {performance?.metrics?.errorRatePercent ?? health.apiMetrics?.errorRatePercent}% · CPU load: {(health.cpuUsage || []).map((n) => n.toFixed(2)).join(", ")}
               </p>
+              {performance?.metrics?.traffic?.length > 0 && (
+                <div className="rounded-2xl border bg-white p-4 h-64 dark:border-slate-800 dark:bg-slate-900">
+                  <h3 className="font-semibold mb-2">Daily API traffic</h3>
+                  <ResponsiveContainer width="100%" height="85%">
+                    <LineChart data={performance.metrics.traffic}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 9 }} />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="requests" stroke="#2E7D32" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           )}
 
@@ -478,8 +540,11 @@ export default function AdminHostPanel() {
               <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-3 rounded-xl overflow-auto">{JSON.stringify(dbStats.tables, null, 2)}</pre>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-primary" onClick={backupDb}>Backup database</button>
-                <button type="button" className="btn-secondary" onClick={() => exportCsv("donations")}>Export donations CSV</button>
-                <button type="button" className="btn-secondary" onClick={() => exportCsv("bookings")}>Export bookings CSV</button>
+                <input className="input-field max-w-xs" placeholder="backup filename" value={restoreFile} onChange={(e) => setRestoreFile(e.target.value)} />
+                <button type="button" className="btn-secondary" onClick={() => api.post("/admin/database/restore", { file: restoreFile }).then((r) => alert(r.data.message))}>Restore</button>
+                <button type="button" className="btn-secondary" onClick={() => exportData("users", "csv")}>Users CSV</button>
+                <button type="button" className="btn-secondary" onClick={() => exportData("donations", "json")}>Donations JSON</button>
+                <button type="button" className="btn-secondary" onClick={() => exportData("logs", "csv")}>Logs CSV</button>
               </div>
             </div>
           )}

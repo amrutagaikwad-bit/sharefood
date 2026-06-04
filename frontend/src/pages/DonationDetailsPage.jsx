@@ -13,13 +13,6 @@ export default function DonationDetailsPage() {
   const { user } = useAuth();
   const { notify } = useNotifications();
   const [data, setData] = useState(null);
-<<<<<<< HEAD
-
-  const load = () => api.get(`/donations/${id}`).then((res) => setData(res.data));
-
-  useEffect(() => { load(); }, [id]);
-
-=======
 
   const load = () => api.get(`/donations/${id}`).then((res) => setData(res.data));
 
@@ -27,7 +20,6 @@ export default function DonationDetailsPage() {
     load();
   }, [id]);
 
->>>>>>> ffc4eea (kkr)
   const reportDonation = async () => {
     await api.post(`/donations/${id}/report`, { reason: "User reported" });
     notify("Donation reported to admin");
@@ -68,26 +60,9 @@ export default function DonationDetailsPage() {
               <Phone size={16} /> Contact Donor
             </a>
           )}
-<<<<<<< HEAD
-          {user?.role === "RECEIVER" && data.status === "ACTIVE" && data.servingsRemaining > 0 && (
-            <BookingForm
-              donation={data}
-              onSuccess={() => {
-                notify("Booking submitted — awaiting donor confirmation");
-                load();
-                navigate("/bookings");
-              }}
-              onError={(msg) => notify(msg)}
-            />
-          )}
-          {!user && data.servingsRemaining > 0 && (
-            <button className="btn-primary w-full" onClick={() => navigate("/auth")}>Login to book food</button>
-          )}
-=======
           {canBook ? (
             <BookingForm
-              donationId={id}
-              maxServings={data.servingsRemaining}
+              donation={data}
               onSuccess={() => {
                 notify("Booking submitted — waiting for donor confirmation");
                 load();
@@ -95,12 +70,11 @@ export default function DonationDetailsPage() {
               onError={(msg) => notify(msg)}
             />
           ) : !user ? (
-            <button className="btn-primary w-full" type="button" onClick={() => navigate("/auth")}>
+            <button type="button" className="btn-primary w-full" onClick={() => navigate("/auth")}>
               Sign in to book food
             </button>
           ) : null}
->>>>>>> ffc4eea (kkr)
-          <button className="text-sm text-red-600 underline" type="button" onClick={reportDonation}>Report this listing</button>
+          <button type="button" className="text-sm text-red-600 underline" onClick={reportDonation}>Report this listing</button>
         </div>
       </article>
     </div>

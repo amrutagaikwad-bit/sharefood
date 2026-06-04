@@ -18,6 +18,18 @@ async function main() {
     }
   });
 
+  await prisma.user.upsert({
+    where: { email: "superadmin@foodbridge.com" },
+    update: {},
+    create: {
+      name: "Super Admin",
+      email: "superadmin@foodbridge.com",
+      password: hashed,
+      role: "SUPER_ADMIN",
+      phone: "+910000000098"
+    }
+  });
+
   const donor = await prisma.user.upsert({
     where: { email: "donor@foodbridge.com" },
     update: {},
