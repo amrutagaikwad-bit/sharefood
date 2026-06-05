@@ -1,20 +1,22 @@
+# Render Blueprint — sync this file in Render Dashboard → Settings → Blueprint
+# Repo: https://github.com/amrutagaikwad-bit/sharefood
 services:
   - type: web
     name: foodbridge-api
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npx prisma generate && npx prisma db push --accept-data-loss && npm run seed
+    buildCommand: npm install && npm run deploy
     startCommand: npm start
     healthCheckPath: /api/health/public
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        value: postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:5432/postgres?sslmode=require
       - key: DIRECT_URL
-        sync: false
+        value: postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:5432/postgres?sslmode=require
       - key: JWT_SECRET
-        generateValue: true
+        value: foodbridge_prod_jwt_secret_min_32_chars
       - key: FRONTEND_URL
         value: https://foodbridgeplatform.netlify.app
       - key: PORT

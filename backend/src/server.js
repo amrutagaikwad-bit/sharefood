@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { assertEnv, getAllowedOrigins } from "./config/env.js";
+import { assertEnv, getAllowedOrigins, getDatabaseHost } from "./config/env.js";
 assertEnv();
 import http from "http";
 import express from "express";
@@ -42,17 +42,20 @@ app.use((req, res, next) => {
 
 app.get("/api/health/public", async (_, res) => {
   let database = "unknown";
+  let detail = "";
   try {
     await prisma.$queryRaw`SELECT 1`;
     database = "connected";
   } catch (err) {
     database = "error";
+    detail = err.message;
     console.error("[health] Database check failed:", err.message);
   }
   res.json({
     ok: database === "connected",
     service: "FoodBridge API",
-    database
+    database,
+    ...(process.env.NODE_ENV !== "production" && detail ? { detail } : {})
   });
 });
 
@@ -68,6 +71,7 @@ app.use("/api/health", healthRoutes);
 
 app.use((err, req, res, next) => {
   logSystemError(err.message, err.stack, { path: req.path, method: req.method });
+  console.error("[api]", req.method, req.path, err.message);
   res.status(500).json({ message: "Internal server error" });
 });
 
@@ -76,6 +80,17 @@ app.use((_, res) => {
 });
 
 const PORT = Number(process.env.PORT) || 5000;
+
+async function verifyDatabaseOnStartup() {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    const users = await prisma.user.count();
+    console.log(`Database connected (${getDatabaseHost()}) — ${users} users`);
+  } catch (err) {
+    console.error(`Database connection FAILED (${getDatabaseHost()}): ${err.message}`);
+    console.error("Set DATABASE_URL on Render to your Supabase URI with ?sslmode=require");
+  }
+}
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
@@ -93,7 +108,5 @@ server.listen(PORT, () => {
   console.log(`API: https://foodbridge-54z7.onrender.com`);
   console.log(`Frontend: https://foodbridgeplatform.netlify.app`);
   console.log(`CORS origins: ${getAllowedOrigins().join(", ")}`);
-  const dbUrl = process.env.DATABASE_URL || "";
-  const dbHost = dbUrl.includes("@") ? dbUrl.split("@")[1]?.split("/")[0] : "(local)";
-  console.log(`Database host: ${dbHost}`);
+  verifyDatabaseOnStartup();
 });

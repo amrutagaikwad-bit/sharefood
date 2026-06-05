@@ -13,17 +13,34 @@ const PRODUCTION_ORIGINS = [
   "https://www.foodbridgeplatform.netlify.app"
 ];
 
+function ensureSslMode(url) {
+  if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) return url;
+  if (/[?&]sslmode=/i.test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=require`;
+}
+
 /** Prisma SQLite paths are relative to the prisma/ folder — not prisma/prisma/ */
 export function normalizeDatabaseUrl() {
-  const url = process.env.DATABASE_URL?.trim();
+  let url = process.env.DATABASE_URL?.trim();
   if (!url) return;
+
   if (url.startsWith("file:") && (url === "file:./prisma/dev.db" || url.includes("prisma/prisma"))) {
     console.warn("[env] DATABASE_URL corrected to file:./dev.db (use backend/.env.example as template)");
-    process.env.DATABASE_URL = "file:./dev.db";
+    url = "file:./dev.db";
   }
-  if (!process.env.DIRECT_URL?.trim()) {
-    process.env.DIRECT_URL = url;
+
+  if (url.startsWith("postgresql://") || url.startsWith("postgres://")) {
+    url = ensureSslMode(url);
   }
+
+  process.env.DATABASE_URL = url;
+
+  let direct = process.env.DIRECT_URL?.trim();
+  if (!direct) direct = url;
+  if (direct.startsWith("postgresql://") || direct.startsWith("postgres://")) {
+    direct = ensureSslMode(direct);
+  }
+  process.env.DIRECT_URL = direct;
 }
 
 normalizeDatabaseUrl();
@@ -52,4 +69,10 @@ export function assertEnv() {
 
 export function getJwtSecret() {
   return process.env.JWT_SECRET;
+}
+
+export function getDatabaseHost() {
+  const url = process.env.DATABASE_URL || "";
+  if (!url.includes("@")) return url || "(not set)";
+  return url.split("@")[1]?.split("/")[0]?.split("?")[0] || "(unknown)";
 }
