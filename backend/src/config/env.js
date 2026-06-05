@@ -7,11 +7,20 @@ const LOCAL_ORIGINS = [
   "http://127.0.0.1:4173"
 ];
 
-/** Production Netlify frontend — https://foodbridgeplatform.netlify.app */
+/** Production deployment URLs */
 const PRODUCTION_ORIGINS = [
   "https://foodbridgeplatform.netlify.app",
   "https://www.foodbridgeplatform.netlify.app"
 ];
+
+const PRODUCTION_DATABASE_URL =
+  "postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:5432/postgres?sslmode=require";
+
+const PRODUCTION_JWT_SECRET = "foodbridge_prod_jwt_secret_min_32_chars";
+
+function isProduction() {
+  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+}
 
 function ensureSslMode(url) {
   if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) return url;
@@ -19,8 +28,26 @@ function ensureSslMode(url) {
   return `${url}${url.includes("?") ? "&" : "?"}sslmode=require`;
 }
 
+function useProductionDatabaseDefaults() {
+  const url = process.env.DATABASE_URL?.trim() || "";
+  const bad = !url || url.startsWith("file:") || url.includes("localhost");
+  if (!isProduction() || !bad) return;
+  console.warn("[env] Using production Supabase DATABASE_URL (set DATABASE_URL on Render to override)");
+  process.env.DATABASE_URL = PRODUCTION_DATABASE_URL;
+  process.env.DIRECT_URL = PRODUCTION_DATABASE_URL;
+}
+
+function useProductionJwtDefault() {
+  if (!isProduction() || process.env.JWT_SECRET?.trim()) return;
+  console.warn("[env] Using production JWT_SECRET default (set JWT_SECRET on Render to override)");
+  process.env.JWT_SECRET = PRODUCTION_JWT_SECRET;
+}
+
 /** Prisma SQLite paths are relative to the prisma/ folder — not prisma/prisma/ */
 export function normalizeDatabaseUrl() {
+  useProductionDatabaseDefaults();
+  useProductionJwtDefault();
+
   let url = process.env.DATABASE_URL?.trim();
   if (!url) return;
 
