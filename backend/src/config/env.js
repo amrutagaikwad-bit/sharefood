@@ -12,23 +12,6 @@ const PRODUCTION_ORIGINS = [
   "https://www.foodbridgeplatform.netlify.app"
 ];
 
-/**
- * Render is IPv4-only. Supabase direct host (port 5432) is IPv6-only.
- * Use Supabase transaction pooler port 6543 — works on IPv4-capable networks.
- * @see https://supabase.com/docs/guides/database/connecting-to-postgres
- */
-const PRODUCTION_DATABASE_URL =
-  "postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:6543/postgres?pgbouncer=true&sslmode=require";
-
-const PRODUCTION_DIRECT_URL =
-  "postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:6543/postgres?pgbouncer=true&sslmode=require";
-
-const PRODUCTION_JWT_SECRET = "foodbridge_prod_jwt_secret_min_32_chars";
-
-function isProduction() {
-  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
-}
-
 function ensureSslMode(url) {
   if (!url.startsWith("postgresql://") && !url.startsWith("postgres://")) return url;
   if (/[?&]sslmode=/i.test(url)) return url;
@@ -41,25 +24,19 @@ function ensurePgbouncer(url) {
   return `${url}${url.includes("?") ? "&" : "?"}pgbouncer=true`;
 }
 
-function useProductionDatabaseDefaults() {
-  if (!isProduction()) return;
-  const url = process.env.DATABASE_URL?.trim() || "";
-  const onSupabase = url.includes("supabase.co");
-  if (onSupabase && url.includes(":6543")) return;
-  console.warn("[env] Applying production Supabase pooler URLs for Render (IPv4)");
-  process.env.DATABASE_URL = PRODUCTION_DATABASE_URL;
-  process.env.DIRECT_URL = PRODUCTION_DIRECT_URL;
-}
-
-function useProductionJwtDefault() {
-  if (!isProduction() || process.env.JWT_SECRET?.trim()) return;
-  process.env.JWT_SECRET = PRODUCTION_JWT_SECRET;
+/** Mask password in connection string for safe logging */
+export function maskDatabaseUrl(url) {
+  if (!url) return "(not set)";
+  try {
+    const parsed = new URL(url.replace(/^postgres(ql)?:\/\//, "http://"));
+    if (parsed.password) parsed.password = "****";
+    return parsed.href.replace(/^http:\/\//, "postgresql://");
+  } catch {
+    return url.replace(/:([^:@/]+)@/, ":****@");
+  }
 }
 
 export function normalizeDatabaseUrl() {
-  useProductionDatabaseDefaults();
-  useProductionJwtDefault();
-
   let url = process.env.DATABASE_URL?.trim();
   if (!url) return;
 
@@ -82,6 +59,11 @@ export function normalizeDatabaseUrl() {
 }
 
 normalizeDatabaseUrl();
+
+export function logDatabaseConfig() {
+  console.log("DATABASE_URL:", maskDatabaseUrl(process.env.DATABASE_URL));
+  console.log("DIRECT_URL:", maskDatabaseUrl(process.env.DIRECT_URL));
+}
 
 export function getAllowedOrigins() {
   const fromEnv = (process.env.FRONTEND_URL || "")

@@ -1,6 +1,7 @@
 import "dotenv/config";
-import { assertEnv, getAllowedOrigins, getDatabaseHost } from "./config/env.js";
+import { assertEnv, getAllowedOrigins, getDatabaseHost, logDatabaseConfig } from "./config/env.js";
 assertEnv();
+logDatabaseConfig();
 import http from "http";
 import express from "express";
 import cors from "cors";
@@ -41,22 +42,22 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/health/public", async (_, res) => {
-  let database = "unknown";
-  let detail = "";
   try {
     await prisma.$queryRaw`SELECT 1`;
-    database = "connected";
-  } catch (err) {
-    database = "error";
-    detail = err.message;
-    console.error("[health] Database check failed:", err.message);
+    return res.json({
+      ok: true,
+      service: "FoodBridge API",
+      database: "connected"
+    });
+  } catch (error) {
+    console.error("[health] Database check failed:", error.message);
+    return res.status(500).json({
+      ok: false,
+      service: "FoodBridge API",
+      database: "error",
+      error: error.message
+    });
   }
-  res.json({
-    ok: database === "connected",
-    service: "FoodBridge API",
-    database,
-    ...(process.env.NODE_ENV !== "production" && detail ? { detail } : {})
-  });
 });
 
 app.use("/api/auth", authRoutes);
@@ -88,7 +89,6 @@ async function verifyDatabaseOnStartup() {
     console.log(`Database connected (${getDatabaseHost()}) — ${users} users`);
   } catch (err) {
     console.error(`Database connection FAILED (${getDatabaseHost()}): ${err.message}`);
-    console.error("Set DATABASE_URL on Render to your Supabase URI with ?sslmode=require");
   }
 }
 
