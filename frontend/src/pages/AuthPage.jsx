@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -13,6 +13,7 @@ export default function AuthPage() {
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpHint, setOtpHint] = useState("");
+  const [resendIn, setResendIn] = useState(0);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { login, register, loginWithOtp } = useAuth();
@@ -20,18 +21,33 @@ export default function AuthPage() {
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setInterval(() => setResendIn((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
+
   const sendOtp = async () => {
     const email = form.email.trim().toLowerCase();
     if (!email) return setError("Enter your email first");
+    if (isRegister && !form.name.trim()) return setError("Enter your name first");
+    if (isRegister && form.password && form.password.length < 6) {
+      return setError("Password must be at least 6 characters");
+    }
     setSubmitting(true);
     setError("");
     try {
-      const res = await api.post("/auth/otp/send", {
+      const res = await api.post("/auth/send-otp", {
         email,
         purpose: isRegister ? "register" : "login"
       });
       setOtpSent(true);
-      setOtpHint(res.data.message);
+      setResendIn(res.data.resendAfterSeconds || 60);
+      let hint = res.data.message;
+      if (res.data.devMode && res.data.devCode) {
+        hint += ` — Dev code: ${res.data.devCode}`;
+      }
+      setOtpHint(hint);
     } catch (err) {
       setError(err?.response?.data?.message || "Could not send OTP");
     } finally {
@@ -56,7 +72,8 @@ export default function AuthPage() {
           purpose: isRegister ? "register" : "login",
           name: form.name,
           role: form.role,
-          phone: form.phone
+          phone: form.phone,
+          password: form.password || undefined
         });
       } else if (isRegister) {
         await register({ ...form, email });
@@ -68,15 +85,11 @@ export default function AuthPage() {
       const msg = err?.response?.data?.message;
       if (!err?.response) {
         if (!isApiConfigured()) {
-          setError(
-            "API URL is not configured. Set VITE_API_URL in Netlify environment variables and redeploy."
-          );
+          setError("API URL is not configured. Set VITE_API_URL in Netlify and redeploy.");
         } else if (import.meta.env.DEV) {
-          setError("Cannot reach API. From sharefood folder run: npm run setup, then npm run dev");
+          setError("Cannot reach API. Run: npm run setup, then npm run dev");
         } else {
-          setError(
-            `Cannot reach API at ${API_BASE_URL}. Check that the Render backend is running and CORS allows this site.`
-          );
+          setError(`Cannot reach API at ${API_BASE_URL}. Check Render backend and CORS.`);
         }
       } else {
         setError(msg || "Authentication failed");
@@ -91,6 +104,7 @@ export default function AuthPage() {
     setError("");
     setOtpSent(false);
     setOtpCode("");
+    setResendIn(0);
     setForm(emptyForm);
   };
 
@@ -136,13 +150,13 @@ export default function AuthPage() {
           onChange={(e) => set("email", e.target.value)}
         />
 
-        {!useOtp && (
+        {(!useOtp || isRegister) && (
           <input
             className="input-field"
             type="password"
-            placeholder="Password (min 6 characters)"
-            required
-            minLength={6}
+            placeholder={useOtp ? "Password (optional, min 6 chars)" : "Password (min 6 characters)"}
+            required={!useOtp}
+            minLength={useOtp ? undefined : 6}
             autoComplete={isRegister ? "new-password" : "current-password"}
             value={form.password}
             onChange={(e) => set("password", e.target.value)}
@@ -157,11 +171,17 @@ export default function AuthPage() {
               placeholder="6-digit code"
               required
               maxLength={6}
+              inputMode="numeric"
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
             />
-            <button type="button" className="text-sm text-primary underline" onClick={sendOtp} disabled={submitting}>
-              Resend code
+            <button
+              type="button"
+              className="text-sm text-primary underline disabled:opacity-50"
+              onClick={sendOtp}
+              disabled={submitting || resendIn > 0}
+            >
+              {resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}
             </button>
           </>
         )}

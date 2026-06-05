@@ -79,6 +79,9 @@ export default function MyBookingsPage() {
             {b.message && <p className="text-sm italic">{b.message}</p>}
             <div className="flex flex-wrap gap-2">
               <Link to={`/donations/${b.donationId}`} className="btn-secondary text-sm">View donation</Link>
+              {["Pending", "Confirmed", "CONFIRMED", "ACCEPTED", "RESERVED"].includes(b.status) && (
+                <Link to={`/bookings/${b.id}/track`} className="btn-primary text-sm">Live GPS track</Link>
+              )}
               {user.role === "RECEIVER" && ["Pending", "Confirmed"].includes(b.status) && (
                 <button type="button" className="btn-secondary text-sm text-red-600" onClick={() => cancel(b.id)}>
                   Cancel booking

@@ -3,6 +3,7 @@ import { logActivity } from "./activity.service.js";
 import { createNotification } from "./notification.service.js";
 import { emitEvent } from "../socket.js";
 import { adjustServings, canReserve } from "./servings.service.js";
+import { sendBookingConfirmationEmail } from "./email.service.js";
 
 export const ACTIVE_BOOKING_STATUSES = ["PENDING", "CONFIRMED", "ACCEPTED", "RESERVED"];
 
@@ -126,6 +127,16 @@ export async function createBooking(payload) {
   emitEvent("request:created", booking);
   emitEvent("booking:created", booking);
   emitEvent("donation:updated", refreshedDonation);
+
+  if (user?.email) {
+    sendBookingConfirmationEmail(user.email, {
+      foodName: donation.foodName,
+      status: "Pending",
+      bookingDateTime: when,
+      address: donation.address
+    }).catch(() => {});
+  }
+
   return formatBooking(booking);
 }
 
@@ -186,6 +197,16 @@ export async function confirmBooking(bookingId, userOrDonorId) {
   emitEvent("request:updated", updated);
   emitEvent("booking:updated", updated);
   emitEvent("donation:updated", await getDonationFull(booking.donationId));
+
+  if (booking.receiver?.email) {
+    sendBookingConfirmationEmail(booking.receiver.email, {
+      foodName: booking.donation.foodName,
+      status: "Confirmed",
+      bookingDateTime: updated.bookingDateTime,
+      address: booking.donation.address
+    }).catch(() => {});
+  }
+
   return formatBooking(updated);
 }
 

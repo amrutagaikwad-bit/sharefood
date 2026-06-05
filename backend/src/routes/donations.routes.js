@@ -79,6 +79,15 @@ router.post("/", authRequired, roleRequired("DONOR"), async (req, res) => {
       meta: { donationId: donation.id }
     });
 
+    const { sendDonationConfirmationEmail } = await import("../services/email.service.js");
+    if (req.user.email) {
+      sendDonationConfirmationEmail(req.user.email, {
+        foodName: donation.foodName,
+        address: donation.address,
+        expiryTime: donation.expiryTime
+      }).catch(() => {});
+    }
+
     emitEvent("donation:created", donation);
     return res.status(201).json(donation);
   } catch (err) {

@@ -1,6 +1,11 @@
 import { Server } from "socket.io";
 import { prisma } from "./config/prisma.js";
 import { parseUserAgent } from "./utils/userAgent.js";
+import {
+  updateLocation,
+  getBookingLocations,
+  removeLocation
+} from "./services/location.service.js";
 
 let io = null;
 const onlineUsers = new Map();
@@ -104,7 +109,48 @@ export function initSocket(httpServer, allowedOrigins = ["http://localhost:5173"
       if (room) socket.join(String(room));
     });
 
+    socket.on("location:join", ({ bookingId, userId, role, name }) => {
+      if (!bookingId || !userId) return;
+      const room = `tracking:${bookingId}`;
+      socket.join(room);
+      socket.data.trackingBookingId = bookingId;
+      socket.data.trackingUserId = userId;
+      const existing = getBookingLocations(bookingId);
+      socket.emit("location:snapshot", { bookingId, locations: existing });
+      io.to(room).emit("location:joined", { bookingId, userId, role, name });
+    });
+
+    socket.on("location:update", (payload) => {
+      const { bookingId, userId, role, name, latitude, longitude } = payload || {};
+      if (!bookingId || !userId || latitude == null || longitude == null) return;
+      const entry = updateLocation(bookingId, {
+        userId,
+        role,
+        name,
+        latitude,
+        longitude,
+        timestamp: Date.now()
+      });
+      const room = `tracking:${bookingId}`;
+      io.to(room).emit("location:update", { bookingId, ...entry });
+    });
+
+    socket.on("location:leave", ({ bookingId, userId }) => {
+      if (!bookingId || !userId) return;
+      removeLocation(bookingId, userId);
+      const room = `tracking:${bookingId}`;
+      socket.leave(room);
+      io.to(room).emit("location:left", { bookingId, userId });
+    });
+
     socket.on("disconnect", async () => {
+      if (socket.data.trackingBookingId && socket.data.trackingUserId) {
+        removeLocation(socket.data.trackingBookingId, socket.data.trackingUserId);
+        io.to(`tracking:${socket.data.trackingBookingId}`).emit("location:left", {
+          bookingId: socket.data.trackingBookingId,
+          userId: socket.data.trackingUserId
+        });
+      }
       totalConnections = Math.max(0, totalConnections - 1);
       for (const [uid, data] of onlineUsers.entries()) {
         if (data.socketId === socket.id) {

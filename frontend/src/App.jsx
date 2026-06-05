@@ -12,6 +12,7 @@ import DonationDetailsPage from "./pages/DonationDetailsPage";
 import LandingPage from "./pages/LandingPage";
 import MapBrowsePage from "./pages/MapBrowsePage";
 import MyBookingsPage from "./pages/MyBookingsPage";
+import LiveTrackingPage from "./pages/LiveTrackingPage";
 import AdminHostPanel from "./pages/AdminHostPanel";
 import AdminRoute from "./components/AdminRoute";
 import { useLocation } from "react-router-dom";
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/donate/new" element={<ProtectedRoute role="DONOR"><CreateDonationPage /></ProtectedRoute>} />
         <Route path="/donate/edit/:id" element={<ProtectedRoute role="DONOR"><EditDonationPage /></ProtectedRoute>} />
         <Route path="/bookings" element={<ProtectedRoute><MyBookingsPage /></ProtectedRoute>} />
+        <Route path="/bookings/:id/track" element={<ProtectedRoute><LiveTrackingPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </AppShell>

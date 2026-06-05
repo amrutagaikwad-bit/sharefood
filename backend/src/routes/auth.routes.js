@@ -7,6 +7,7 @@ import { authRequired } from "../middleware/auth.js";
 import { logActivity } from "../services/activity.service.js";
 import { createNotification, notifyAdmins } from "../services/notification.service.js";
 import { sendOtp, verifyOtp } from "../services/otp.service.js";
+import { sendWelcomeEmail } from "../services/email.service.js";
 import { recordLogin, recordFailedLogin } from "../services/loginHistory.service.js";
 
 function clientMeta(req) {
@@ -17,6 +18,55 @@ function clientMeta(req) {
 }
 
 const router = express.Router();
+
+async function handleSendOtp(req, res) {
+  try {
+    const { email, purpose = "login" } = req.body;
+    if (!["login", "register", "reset"].includes(purpose)) {
+      return res.status(400).json({ message: "Invalid purpose. Use login, register, or reset." });
+    }
+    const result = await sendOtp({ email, purpose });
+    return res.json(result);
+  } catch (err) {
+    return res.status(err.status || 500).json({ message: err.message || "Failed to send OTP" });
+  }
+}
+
+async function handleVerifyOtp(req, res) {
+  try {
+    const { email, code, purpose = "login", name, role, phone, password } = req.body;
+    const user = await verifyOtp({
+      email,
+      code,
+      purpose,
+      registerProfile: purpose === "register" ? { name, role, phone, password } : undefined
+    });
+
+    if (purpose === "register") {
+      await logActivity({ userId: user.id, action: "USER_REGISTERED_OTP", entityType: "User", entityId: user.id });
+      await notifyAdmins({
+        type: "NEW_USER",
+        title: "New user registered",
+        message: `${user.name} joined as ${user.role}`,
+        meta: { userId: user.id }
+      });
+      await sendWelcomeEmail(user.email, user.name);
+    } else {
+      await recordLogin({
+        userId: user.id,
+        email: user.email,
+        success: true,
+        ...clientMeta(req)
+      });
+      await logActivity({ userId: user.id, action: "USER_LOGIN_OTP", entityType: "User", entityId: user.id });
+    }
+
+    const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
+    return res.json({ token, user: sanitizeUser(user) });
+  } catch (err) {
+    return res.status(err.status || 500).json({ message: err.message || "OTP verification failed" });
+  }
+}
 
 router.post("/register", async (req, res) => {
   try {
@@ -47,12 +97,10 @@ router.post("/register", async (req, res) => {
       message: `${user.name} joined as ${user.role}`,
       meta: { userId: user.id }
     });
+    await sendWelcomeEmail(user.email, user.name);
 
     const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
-    return res.status(201).json({
-      token,
-      user: sanitizeUser(user)
-    });
+    return res.status(201).json({ token, user: sanitizeUser(user) });
   } catch (err) {
     console.error("Register error:", err);
     return res.status(500).json({ message: "Failed to register" });
@@ -94,53 +142,11 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post("/otp/send", async (req, res) => {
-  try {
-    const { email, purpose = "login" } = req.body;
-    if (!["login", "register"].includes(purpose)) {
-      return res.status(400).json({ message: "Invalid purpose" });
-    }
-    const result = await sendOtp({ email, purpose });
-    return res.json(result);
-  } catch (err) {
-    return res.status(err.status || 500).json({ message: err.message || "Failed to send OTP" });
-  }
-});
+router.post("/send-otp", handleSendOtp);
+router.post("/otp/send", handleSendOtp);
 
-router.post("/otp/verify", async (req, res) => {
-  try {
-    const { email, code, purpose = "login", name, role, phone } = req.body;
-    const user = await verifyOtp({
-      email,
-      code,
-      purpose,
-      registerProfile: purpose === "register" ? { name, role, phone } : undefined
-    });
-
-    if (purpose === "register") {
-      await logActivity({ userId: user.id, action: "USER_REGISTERED_OTP", entityType: "User", entityId: user.id });
-      await notifyAdmins({
-        type: "NEW_USER",
-        title: "New user registered",
-        message: `${user.name} joined as ${user.role}`,
-        meta: { userId: user.id }
-      });
-    } else {
-      await recordLogin({
-        userId: user.id,
-        email: user.email,
-        success: true,
-        ...clientMeta(req)
-      });
-      await logActivity({ userId: user.id, action: "USER_LOGIN_OTP", entityType: "User", entityId: user.id });
-    }
-
-    const token = jwt.sign({ userId: user.id, role: user.role }, getJwtSecret(), { expiresIn: "7d" });
-    return res.json({ token, user: sanitizeUser(user) });
-  } catch (err) {
-    return res.status(err.status || 500).json({ message: err.message || "OTP verification failed" });
-  }
-});
+router.post("/verify-otp", handleVerifyOtp);
+router.post("/otp/verify", handleVerifyOtp);
 
 router.post("/logout", authRequired, async (req, res) => {
   await logActivity({ userId: req.user.id, action: "USER_LOGOUT", entityType: "User", entityId: req.user.id });
