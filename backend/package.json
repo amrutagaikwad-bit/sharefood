@@ -9,6 +9,7 @@
     "build": "prisma generate",
     "start": "node src/server.js",
     "deploy": "prisma db push --accept-data-loss && npm run seed",
+    "render:build": "prisma generate",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name production_upgrade",

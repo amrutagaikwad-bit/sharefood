@@ -7,14 +7,21 @@ const LOCAL_ORIGINS = [
   "http://127.0.0.1:4173"
 ];
 
-/** Production deployment URLs */
 const PRODUCTION_ORIGINS = [
   "https://foodbridgeplatform.netlify.app",
   "https://www.foodbridgeplatform.netlify.app"
 ];
 
+/**
+ * Render is IPv4-only. Supabase direct host (port 5432) is IPv6-only.
+ * Use Supabase transaction pooler port 6543 — works on IPv4-capable networks.
+ * @see https://supabase.com/docs/guides/database/connecting-to-postgres
+ */
 const PRODUCTION_DATABASE_URL =
-  "postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:5432/postgres?sslmode=require";
+  "postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:6543/postgres?pgbouncer=true&sslmode=require";
+
+const PRODUCTION_DIRECT_URL =
+  "postgresql://postgres:FoodBridge%401012@db.tpnhbwflsrscfylnedqp.supabase.co:6543/postgres?pgbouncer=true&sslmode=require";
 
 const PRODUCTION_JWT_SECRET = "foodbridge_prod_jwt_secret_min_32_chars";
 
@@ -28,23 +35,27 @@ function ensureSslMode(url) {
   return `${url}${url.includes("?") ? "&" : "?"}sslmode=require`;
 }
 
+function ensurePgbouncer(url) {
+  if (!url.includes(":6543")) return url;
+  if (/[?&]pgbouncer=/i.test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}pgbouncer=true`;
+}
+
 function useProductionDatabaseDefaults() {
   if (!isProduction()) return;
   const url = process.env.DATABASE_URL?.trim() || "";
-  const ok = url.includes("tpnhbwflsrscfylnedqp.supabase.co");
-  if (ok) return;
-  console.warn("[env] Applying production Supabase DATABASE_URL for Render");
+  const onSupabase = url.includes("supabase.co");
+  if (onSupabase && url.includes(":6543")) return;
+  console.warn("[env] Applying production Supabase pooler URLs for Render (IPv4)");
   process.env.DATABASE_URL = PRODUCTION_DATABASE_URL;
-  process.env.DIRECT_URL = PRODUCTION_DATABASE_URL;
+  process.env.DIRECT_URL = PRODUCTION_DIRECT_URL;
 }
 
 function useProductionJwtDefault() {
   if (!isProduction() || process.env.JWT_SECRET?.trim()) return;
-  console.warn("[env] Using production JWT_SECRET default (set JWT_SECRET on Render to override)");
   process.env.JWT_SECRET = PRODUCTION_JWT_SECRET;
 }
 
-/** Prisma SQLite paths are relative to the prisma/ folder — not prisma/prisma/ */
 export function normalizeDatabaseUrl() {
   useProductionDatabaseDefaults();
   useProductionJwtDefault();
@@ -53,20 +64,19 @@ export function normalizeDatabaseUrl() {
   if (!url) return;
 
   if (url.startsWith("file:") && (url === "file:./prisma/dev.db" || url.includes("prisma/prisma"))) {
-    console.warn("[env] DATABASE_URL corrected to file:./dev.db (use backend/.env.example as template)");
+    console.warn("[env] DATABASE_URL corrected to file:./dev.db");
     url = "file:./dev.db";
   }
 
   if (url.startsWith("postgresql://") || url.startsWith("postgres://")) {
-    url = ensureSslMode(url);
+    url = ensureSslMode(ensurePgbouncer(url));
   }
 
   process.env.DATABASE_URL = url;
 
-  let direct = process.env.DIRECT_URL?.trim();
-  if (!direct) direct = url;
+  let direct = process.env.DIRECT_URL?.trim() || url;
   if (direct.startsWith("postgresql://") || direct.startsWith("postgres://")) {
-    direct = ensureSslMode(direct);
+    direct = ensureSslMode(ensurePgbouncer(direct));
   }
   process.env.DIRECT_URL = direct;
 }
@@ -85,13 +95,8 @@ export function assertEnv() {
   normalizeDatabaseUrl();
   const missing = required.filter((key) => !process.env[key]?.trim());
   if (missing.length) {
-    console.error(
-      `Missing environment variables: ${missing.join(", ")}. Copy backend/.env.example to backend/.env and restart.`
-    );
+    console.error(`Missing environment variables: ${missing.join(", ")}`);
     process.exit(1);
-  }
-  if (process.env.JWT_SECRET.length < 16) {
-    console.warn("[env] JWT_SECRET should be at least 16 characters in production.");
   }
 }
 
