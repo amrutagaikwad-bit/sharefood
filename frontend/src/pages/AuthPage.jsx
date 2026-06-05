@@ -91,6 +91,10 @@ export default function AuthPage() {
         } else {
           setError(`Cannot reach API at ${API_BASE_URL}. Check Render backend and CORS.`);
         }
+      } else if (msg === "Route not found") {
+        setError(
+          "API route not found. Check Netlify VITE_API_URL ends with /api (e.g. https://foodbridge-54z7.onrender.com/api) and redeploy."
+        );
       } else {
         setError(msg || "Authentication failed");
       }

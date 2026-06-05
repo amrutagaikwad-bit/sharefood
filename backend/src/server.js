@@ -41,6 +41,23 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/", (_, res) => {
+  res.json({
+    service: "FoodBridge API",
+    status: "running",
+    health: "/api/health/public",
+    frontend: "https://foodbridgeplatform.netlify.app"
+  });
+});
+
+app.get("/api", (_, res) => {
+  res.json({
+    service: "FoodBridge API",
+    version: "1.0",
+    endpoints: ["/api/auth", "/api/donations", "/api/bookings", "/api/health/public"]
+  });
+});
+
 app.get("/api/health/public", async (_, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;

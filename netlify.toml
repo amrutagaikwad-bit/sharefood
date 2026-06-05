@@ -1,4 +1,4 @@
-# Use this when Netlify base directory is the repo root (sharefood/)
+# Netlify config — repo root is sharefood/
 [build]
   base = "frontend"
   command = "npm run build"
@@ -9,6 +9,7 @@
   VITE_API_URL = "https://foodbridge-54z7.onrender.com/api"
   VITE_SOCKET_URL = "https://foodbridge-54z7.onrender.com"
 
+# SPA — all React Router paths must serve index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"

@@ -83,13 +83,17 @@ export async function sendOtp({ email, purpose }) {
   recordSend(normalized);
 
   if (user) {
-    await createNotification({
-      userId: user.id,
-      type: "OTP_SENT",
-      title: "Verification code sent",
-      message: "A verification code was sent to your email.",
-      meta: { purpose }
-    });
+    try {
+      await createNotification({
+        userId: user.id,
+        type: "OTP_SENT",
+        title: "Verification code sent",
+        message: "A verification code was sent to your email.",
+        meta: { purpose }
+      });
+    } catch (notifyErr) {
+      console.warn("[otp] notification skipped:", notifyErr.message);
+    }
   }
 
   return {

@@ -28,6 +28,7 @@ async function handleSendOtp(req, res) {
     const result = await sendOtp({ email, purpose });
     return res.json(result);
   } catch (err) {
+    console.error("[auth] send-otp error:", err);
     return res.status(err.status || 500).json({ message: err.message || "Failed to send OTP" });
   }
 }
