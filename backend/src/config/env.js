@@ -29,10 +29,11 @@ function ensureSslMode(url) {
 }
 
 function useProductionDatabaseDefaults() {
+  if (!isProduction()) return;
   const url = process.env.DATABASE_URL?.trim() || "";
-  const bad = !url || url.startsWith("file:") || url.includes("localhost");
-  if (!isProduction() || !bad) return;
-  console.warn("[env] Using production Supabase DATABASE_URL (set DATABASE_URL on Render to override)");
+  const ok = url.includes("tpnhbwflsrscfylnedqp.supabase.co");
+  if (ok) return;
+  console.warn("[env] Applying production Supabase DATABASE_URL for Render");
   process.env.DATABASE_URL = PRODUCTION_DATABASE_URL;
   process.env.DIRECT_URL = PRODUCTION_DATABASE_URL;
 }
