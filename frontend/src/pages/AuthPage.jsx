@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL, isApiConfigured } from "../config/env.js";
 
 const emptyForm = { name: "", email: "", password: "", role: "RECEIVER", phone: "" };
 
@@ -66,7 +67,17 @@ export default function AuthPage() {
     } catch (err) {
       const msg = err?.response?.data?.message;
       if (!err?.response) {
-        setError("Cannot reach API. From sharefood folder run: npm run setup, then npm run dev");
+        if (!isApiConfigured()) {
+          setError(
+            "API URL is not configured. Set VITE_API_URL in Netlify environment variables and redeploy."
+          );
+        } else if (import.meta.env.DEV) {
+          setError("Cannot reach API. From sharefood folder run: npm run setup, then npm run dev");
+        } else {
+          setError(
+            `Cannot reach API at ${API_BASE_URL}. Check that the Render backend is running and CORS allows this site.`
+          );
+        }
       } else {
         setError(msg || "Authentication failed");
       }

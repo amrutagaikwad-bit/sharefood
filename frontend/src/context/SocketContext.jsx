@@ -1,15 +1,20 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
+import { SOCKET_URL } from "../config/env.js";
 
 const SocketContext = createContext(null);
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const instance = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    if (!SOCKET_URL) return undefined;
+
+    const instance = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      withCredentials: true
+    });
     instance.on("connect", () => setConnected(true));
     instance.on("disconnect", () => setConnected(false));
     setSocket(instance);

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { assertEnv } from "./config/env.js";
+import { assertEnv, getAllowedOrigins } from "./config/env.js";
 assertEnv();
 import http from "http";
 import express from "express";
@@ -18,14 +18,20 @@ import { metricsMiddleware } from "./middleware/metrics.middleware.js";
 import { initSocket, incrementRequestCount } from "./socket.js";
 import { startExpiryJob } from "./services/expiry.service.js";
 import { logSystemError } from "./services/activity.service.js";
+import { prisma } from "./config/prisma.js";
 
 const app = express();
 const server = http.createServer(app);
 
-initSocket(server);
+const corsOptions = {
+  origin: getAllowedOrigins(),
+  credentials: true
+};
+
+initSocket(server, corsOptions.origin);
 startExpiryJob();
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "5mb" }));
 app.use(morgan("dev"));
 app.use(metricsMiddleware);
@@ -34,7 +40,21 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/api/health/public", (_, res) => res.json({ ok: true, service: "FoodBridge API" }));
+app.get("/api/health/public", async (_, res) => {
+  let database = "unknown";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    database = "connected";
+  } catch (err) {
+    database = "error";
+    console.error("[health] Database check failed:", err.message);
+  }
+  res.json({
+    ok: database === "connected",
+    service: "FoodBridge API",
+    database
+  });
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/donations", donationRoutes);
@@ -70,5 +90,10 @@ server.on("error", (err) => {
 
 server.listen(PORT, () => {
   console.log(`FoodBridge API + Socket.io running on port ${PORT}`);
-  console.log(`Database: ${process.env.DATABASE_URL}`);
+  console.log(`API: https://foodbridge-54z7.onrender.com`);
+  console.log(`Frontend: https://foodbridgeplatform.netlify.app`);
+  console.log(`CORS origins: ${getAllowedOrigins().join(", ")}`);
+  const dbUrl = process.env.DATABASE_URL || "";
+  const dbHost = dbUrl.includes("@") ? dbUrl.split("@")[1]?.split("/")[0] : "(local)";
+  console.log(`Database host: ${dbHost}`);
 });

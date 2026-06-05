@@ -6,11 +6,14 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
+    "build": "prisma generate",
     "start": "node src/server.js",
+    "deploy": "prisma db push --accept-data-loss && npm run seed",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name production_upgrade",
     "prisma:reset": "prisma migrate reset --force",
-    "db:setup": "npx prisma migrate deploy && npx prisma db push --accept-data-loss && npx prisma generate && npm run seed",
+    "db:setup": "npx prisma db push --accept-data-loss && npx prisma generate && npm run seed",
     "db:fresh": "node -e \"const fs=require('fs');const path=require('path');const p=path.join('prisma','dev.db');['prisma/dev.db','prisma/dev.db-journal',p,p+'-journal'].forEach(f=>{try{fs.unlinkSync(f)}catch(e){}})\" && npm run db:setup",
     "seed": "node prisma/seed.js"
   },

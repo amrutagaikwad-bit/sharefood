@@ -7,9 +7,14 @@ const onlineUsers = new Map();
 let totalConnections = 0;
 let requestCount = 0;
 
-export function initSocket(httpServer) {
+export function initSocket(httpServer, allowedOrigins = ["http://localhost:5173"]) {
+  const origins = Array.isArray(allowedOrigins) ? allowedOrigins : [allowedOrigins];
   io = new Server(httpServer, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
+    cors: {
+      origin: origins.length ? origins : true,
+      methods: ["GET", "POST"],
+      credentials: true
+    }
   });
 
   io.on("connection", (socket) => {
